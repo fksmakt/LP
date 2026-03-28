@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>設定 | 契約書・請求書管理</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+  body { font-family: 'Noto Sans JP', sans-serif; }
+  .sidebar-link { display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;border-radius:.75rem;color:#cbd5e1;transition:all .2s; }
+  .sidebar-link:hover { background:rgba(255,255,255,.1);color:#fff; }
+  .sidebar-link.active { background:rgba(255,255,255,.15);color:#fff;font-weight:500; }
+  .form-label { display:block;font-size:.875rem;font-weight:500;color:#475569;margin-bottom:.375rem; }
+  .form-input { width:100%;border:1.5px solid #e2e8f0;border-radius:.625rem;padding:.6rem .875rem;font-size:.9rem;outline:none;transition:border-color .15s;font-family:inherit; }
+  .form-input:focus { border-color:#6366f1; }
+  .tab-nav-btn { padding:.625rem 1.25rem;border-radius:.625rem;font-size:.875rem;font-weight:500;cursor:pointer;transition:all .15s; }
+  .tab-nav-btn.active { background:#6366f1;color:#fff; }
+  .tab-nav-btn:not(.active) { color:#64748b;hover:bg-slate-100; }
+  .tab-pane { display:none; }
+  .tab-pane.active { display:block; }
+  .section-title { font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:.75rem;padding-bottom:.5rem;border-bottom:1px solid #f1f5f9; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+<div class="flex h-screen overflow-hidden">
+
+  <!-- サイドバー -->
+  <aside class="w-64 flex-shrink-0 bg-gradient-to-b from-indigo-900 to-indigo-800 flex flex-col">
+    <div class="p-6 border-b border-white/10">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-file-signature text-white"></i>
+        </div>
+        <div>
+          <div class="text-white font-semibold text-sm">契約・請求</div>
+          <div class="text-indigo-300 text-xs">管理システム</div>
+        </div>
+      </div>
+    </div>
+    <nav class="flex-1 p-4 space-y-1">
+      <a href="/" class="sidebar-link"><i class="fa-solid fa-house w-5 text-center"></i>ダッシュボード</a>
+      <a href="/contracts.html" class="sidebar-link"><i class="fa-solid fa-file-contract w-5 text-center"></i>契約書管理</a>
+      <a href="/invoices.html" class="sidebar-link"><i class="fa-solid fa-file-invoice-dollar w-5 text-center"></i>請求書管理</a>
+      <div class="pt-3 pb-1"><div class="text-indigo-400 text-xs font-medium px-4 uppercase tracking-wider">設定</div></div>
+      <a href="/settings.html" class="sidebar-link active"><i class="fa-solid fa-gear w-5 text-center"></i>設定</a>
+    </nav>
+  </aside>
+
+  <!-- メイン -->
+  <main class="flex-1 overflow-auto flex flex-col">
+    <header class="bg-white border-b border-slate-200 px-8 py-4 sticky top-0 z-10">
+      <h1 class="text-xl font-bold">設定</h1>
+    </header>
+
+    <div class="p-8 flex-1">
+      <!-- タブナビ -->
+      <div class="flex gap-2 mb-6">
+        <button class="tab-nav-btn active" onclick="switchTab('company')">会社情報</button>
+        <button class="tab-nav-btn" onclick="switchTab('email')">メール設定</button>
+        <button class="tab-nav-btn" onclick="switchTab('invoice')">請求書設定</button>
+        <button class="tab-nav-btn" onclick="switchTab('templates')">テンプレート</button>
+      </div>
+
+      <!-- 会社情報タブ -->
+      <div id="tab-company" class="tab-pane active">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <div class="section-title">会社・組織情報</div>
+          <form id="form-company" class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="form-label">会社名・屋号</label>
+                <input name="company_name" type="text" class="form-input" placeholder="株式会社サンプル">
+              </div>
+              <div>
+                <label class="form-label">代表者名</label>
+                <input name="company_rep" type="text" class="form-input" placeholder="代表取締役 山田太郎">
+              </div>
+            </div>
+            <div>
+              <label class="form-label">住所</label>
+              <input name="company_address" type="text" class="form-input" placeholder="〒150-0001 東京都渋谷区〇〇1-2-3">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="form-label">電話番号</label>
+                <input name="company_phone" type="text" class="form-input" placeholder="03-1234-5678">
+              </div>
+              <div>
+                <label class="form-label">メールアドレス</label>
+                <input name="company_email" type="email" class="form-input" placeholder="info@example.com">
+              </div>
+            </div>
+            <div>
+              <label class="form-label">アプリのベースURL（署名リンク生成に使用）</label>
+              <input name="base_url" type="url" class="form-input" placeholder="https://yourapp.example.com">
+              <p class="text-xs text-slate-400 mt-1">例: http://localhost:3000 または https://あなたのドメイン</p>
+            </div>
+
+            <div class="pt-2">
+              <div class="section-title">銀行口座情報（請求書の振込先に表示）</div>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="form-label">銀行名</label>
+                  <input name="bank_name" type="text" class="form-input" placeholder="〇〇銀行">
+                </div>
+                <div>
+                  <label class="form-label">支店名</label>
+                  <input name="bank_branch" type="text" class="form-input" placeholder="渋谷支店">
+                </div>
+              </div>
+              <div class="grid grid-cols-3 gap-4 mt-4">
+                <div>
+                  <label class="form-label">口座種別</label>
+                  <select name="bank_type" class="form-input">
+                    <option value="普通">普通</option>
+                    <option value="当座">当座</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label">口座番号</label>
+                  <input name="bank_number" type="text" class="form-input" placeholder="1234567">
+                </div>
+                <div>
+                  <label class="form-label">口座名義</label>
+                  <input name="bank_holder" type="text" class="form-input" placeholder="カ）サンプル">
+                </div>
+              </div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+              <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-medium transition-colors">
+                <i class="fa-solid fa-floppy-disk mr-2"></i>保存する
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- メール設定タブ -->
+      <div id="tab-email" class="tab-pane">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <div class="section-title">SMTPメール設定</div>
+
+          <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-5">
+            <div class="flex gap-3">
+              <i class="fa-solid fa-circle-info text-blue-500 mt-0.5"></i>
+              <div class="text-sm text-blue-700">
+                <div class="font-medium mb-1">Gmailをお使いの場合</div>
+                <div>Googleアカウントで<strong>アプリパスワード</strong>を発行してご利用ください。<br>
+                  SMTP: smtp.gmail.com、ポート: 587</div>
+              </div>
+            </div>
+          </div>
+
+          <form id="form-email" class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="form-label">SMTPホスト</label>
+                <input name="smtp_host" type="text" class="form-input" placeholder="smtp.gmail.com">
+              </div>
+              <div>
+                <label class="form-label">SMTPポート</label>
+                <input name="smtp_port" type="number" class="form-input" placeholder="587">
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="form-label">SMTPユーザー名</label>
+                <input name="smtp_user" type="text" class="form-input" placeholder="your@gmail.com">
+              </div>
+              <div>
+                <label class="form-label">SMTPパスワード</label>
+                <input name="smtp_pass" type="password" class="form-input" placeholder="アプリパスワード">
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="form-label">送信者名（From Name）</label>
+                <input name="smtp_from_name" type="text" class="form-input" placeholder="株式会社サンプル">
+              </div>
+              <div>
+                <label class="form-label">送信者メールアドレス</label>
+                <input name="smtp_from_email" type="email" class="form-input" placeholder="noreply@example.com">
+              </div>
+            </div>
+
+            <div class="flex justify-between items-center pt-2">
+              <button type="button" onclick="testEmail()" class="border border-slate-200 hover:bg-slate-50 text-slate-600 px-5 py-2.5 rounded-xl font-medium text-sm transition-colors">
+                <i class="fa-solid fa-paper-plane mr-2"></i>テスト送信
+              </button>
+              <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-medium transition-colors">
+                <i class="fa-solid fa-floppy-disk mr-2"></i>保存する
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- 請求書設定タブ -->
+      <div id="tab-invoice" class="tab-pane">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <div class="section-title">請求書の設定</div>
+          <form id="form-invoice" class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="form-label">請求書番号プレフィックス</label>
+                <input name="invoice_prefix" type="text" class="form-input" placeholder="INV">
+                <p class="text-xs text-slate-400 mt-1">例: INV → INV-202401-0001</p>
+              </div>
+              <div>
+                <label class="form-label">デフォルト消費税率</label>
+                <select name="tax_rate" class="form-input">
+                  <option value="10">10%（標準）</option>
+                  <option value="8">8%（軽減税率）</option>
+                  <option value="0">0%（非課税）</option>
+                </select>
+              </div>
+            </div>
+            <div class="flex justify-end pt-2">
+              <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-medium transition-colors">
+                <i class="fa-solid fa-floppy-disk mr-2"></i>保存する
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- テンプレートタブ -->
+      <div id="tab-templates" class="tab-pane">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-5">
+          <div class="section-title">PDFテンプレートのアップロード</div>
+          <p class="text-sm text-slate-500 mb-4">
+            既存の契約書テンプレートPDFをアップロードすると、署名時にそのPDFが使用されます。
+          </p>
+          <form id="form-template" class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="form-label">テンプレート名</label>
+                <input name="name" type="text" class="form-input" placeholder="雇用契約書テンプレート2024年版" required>
+              </div>
+              <div>
+                <label class="form-label">種別</label>
+                <select name="type" class="form-input">
+                  <option value="employee_contract">雇用契約書</option>
+                  <option value="contractor_contract">業務委託契約書</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="form-label">説明（任意）</label>
+              <input name="description" type="text" class="form-input" placeholder="2024年4月改訂版">
+            </div>
+            <div>
+              <label class="form-label">PDFファイル <span class="text-red-500">*</span></label>
+              <div class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-indigo-400 transition-colors cursor-pointer" onclick="document.getElementById('pdf-upload').click()">
+                <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-300 mb-2 block"></i>
+                <div class="text-sm text-slate-500">クリックしてPDFを選択</div>
+                <div class="text-xs text-slate-400 mt-1">最大20MB</div>
+                <div id="upload-filename" class="text-sm text-indigo-600 mt-2 font-medium"></div>
+              </div>
+              <input id="pdf-upload" name="file" type="file" accept=".pdf" class="hidden" onchange="onFileSelect(this)">
+            </div>
+            <div class="flex justify-end">
+              <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-medium transition-colors">
+                <i class="fa-solid fa-upload mr-2"></i>アップロード
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- テンプレート一覧 -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <div class="section-title">登録済みテンプレート</div>
+          <div id="templates-list">
+            <div class="text-center text-slate-400 text-sm py-4">読み込み中...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- トースト -->
+<div id="toast" class="fixed bottom-6 right-6 z-50 hidden">
+  <div id="toast-inner" class="flex items-center gap-3 bg-white border border-slate-200 shadow-xl rounded-xl px-5 py-3.5 text-sm font-medium"></div>
+</div>
+
+<script>
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  const inner = document.getElementById('toast-inner');
+  const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
+  const color = type === 'success' ? 'text-green-600' : type === 'error' ? 'text-red-600' : 'text-blue-600';
+  inner.innerHTML = `<span class="${color} font-bold">${icon}</span> ${msg}`;
+  el.classList.remove('hidden');
+  setTimeout(() => el.classList.add('hidden'), 3500);
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'templates') loadTemplates();
+}
+
+function onFileSelect(input) {
+  const fn = input.files[0]?.name || '';
+  document.getElementById('upload-filename').textContent = fn;
+}
+
+async function loadSettings() {
+  const data = await fetch('/api/settings').then(r => r.json());
+
+  // フォームに値を設定
+  const forms = ['form-company', 'form-email', 'form-invoice'];
+  for (const formId of forms) {
+    const form = document.getElementById(formId);
+    if (!form) continue;
+    for (const [k, v] of Object.entries(data)) {
+      const el = form.querySelector(`[name="${k}"]`);
+      if (el) el.value = v;
+    }
+  }
+}
+
+async function saveSettings(formId) {
+  const form = document.getElementById(formId);
+  const fd = new FormData(form);
+  const data = Object.fromEntries(fd.entries());
+
+  const res = await fetch('/api/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (res.ok) {
+    toast('設定を保存しました');
+  } else {
+    toast('保存に失敗しました', 'error');
+  }
+}
+
+document.getElementById('form-company').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await saveSettings('form-company');
+});
+document.getElementById('form-email').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await saveSettings('form-email');
+});
+document.getElementById('form-invoice').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await saveSettings('form-invoice');
+});
+
+async function testEmail() {
+  toast('テスト送信機能は近日公開予定です', 'info');
+}
+
+document.getElementById('form-template').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const fd = new FormData(form);
+  if (!fd.get('file') || !fd.get('file').name) {
+    toast('PDFファイルを選択してください', 'error'); return;
+  }
+
+  try {
+    const res = await fetch('/api/settings/templates', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    toast('テンプレートをアップロードしました');
+    form.reset();
+    document.getElementById('upload-filename').textContent = '';
+    loadTemplates();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+});
+
+async function loadTemplates() {
+  const data = await fetch('/api/settings/templates').then(r => r.json());
+  const el = document.getElementById('templates-list');
+  if (!data.length) {
+    el.innerHTML = '<div class="text-center text-slate-400 text-sm py-4">テンプレートがありません</div>';
+    return;
+  }
+  const typeLabel = { employee_contract: '雇用契約書', contractor_contract: '業務委託契約書', invoice: '請求書' };
+  el.innerHTML = data.map(t => `
+    <div class="flex items-center gap-4 py-3 border-b border-slate-50 last:border-0">
+      <div class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center flex-shrink-0">
+        <i class="fa-solid fa-file-pdf text-indigo-500"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="font-medium text-sm">${t.name}</div>
+        <div class="text-xs text-slate-400">${typeLabel[t.type] || t.type} | ${t.created_at?.split(' ')[0] || ''}</div>
+        ${t.description ? `<div class="text-xs text-slate-400">${t.description}</div>` : ''}
+      </div>
+      <a href="/api/settings/templates/${t.id}/download" target="_blank"
+         class="text-indigo-600 hover:text-indigo-800 text-sm px-3 py-1.5 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors">
+        <i class="fa-solid fa-download mr-1"></i> ダウンロード
+      </a>
+      <button onclick="deleteTemplate('${t.id}', '${t.name}')"
+         class="text-red-400 hover:text-red-600 text-sm px-3 py-1.5 border border-red-100 rounded-lg hover:bg-red-50 transition-colors">
+        <i class="fa-solid fa-trash"></i>
+      </button>
+    </div>
+  `).join('');
+}
+
+async function deleteTemplate(id, name) {
+  if (!confirm(`「${name}」を削除しますか？`)) return;
+  await fetch(`/api/settings/templates/${id}`, { method: 'DELETE' });
+  toast('テンプレートを削除しました');
+  loadTemplates();
+}
+
+loadSettings();
+</script>
+</body>
+</html>

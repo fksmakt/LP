@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>請求書管理 | 契約書・請求書管理</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+  body { font-family: 'Noto Sans JP', sans-serif; }
+  .sidebar-link { display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;border-radius:.75rem;color:#cbd5e1;transition:all .2s; }
+  .sidebar-link:hover { background:rgba(255,255,255,.1);color:#fff; }
+  .sidebar-link.active { background:rgba(255,255,255,.15);color:#fff;font-weight:500; }
+  .modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;display:flex;align-items:center;justify-content:center;padding:1rem; }
+  .modal-box { background:#fff;border-radius:1.25rem;width:100%;max-width:720px;max-height:92vh;overflow-y:auto; }
+  .form-label { display:block;font-size:.875rem;font-weight:500;color:#475569;margin-bottom:.375rem; }
+  .form-input { width:100%;border:1.5px solid #e2e8f0;border-radius:.625rem;padding:.6rem .875rem;font-size:.9rem;outline:none;transition:border-color .15s;font-family:inherit; }
+  .form-input:focus { border-color:#7c3aed; }
+  .tab-btn { padding:.5rem 1.25rem;border-radius:.625rem;font-size:.875rem;font-weight:500;cursor:pointer;transition:all .15s; }
+  .tab-btn.active { background:#7c3aed;color:#fff; }
+  .tab-btn:not(.active) { color:#64748b; }
+  .tab-btn:not(.active):hover { background:#f1f5f9; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+<div class="flex h-screen overflow-hidden">
+
+  <!-- サイドバー -->
+  <aside class="w-64 flex-shrink-0 bg-gradient-to-b from-indigo-900 to-indigo-800 flex flex-col">
+    <div class="p-6 border-b border-white/10">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-file-signature text-white"></i>
+        </div>
+        <div>
+          <div class="text-white font-semibold text-sm">契約・請求</div>
+          <div class="text-indigo-300 text-xs">管理システム</div>
+        </div>
+      </div>
+    </div>
+    <nav class="flex-1 p-4 space-y-1">
+      <a href="/" class="sidebar-link"><i class="fa-solid fa-house w-5 text-center"></i>ダッシュボード</a>
+      <a href="/contracts.html" class="sidebar-link"><i class="fa-solid fa-file-contract w-5 text-center"></i>契約書管理</a>
+      <a href="/invoices.html" class="sidebar-link active"><i class="fa-solid fa-file-invoice-dollar w-5 text-center"></i>請求書管理</a>
+      <div class="pt-3 pb-1"><div class="text-indigo-400 text-xs font-medium px-4 uppercase tracking-wider">設定</div></div>
+      <a href="/settings.html" class="sidebar-link"><i class="fa-solid fa-gear w-5 text-center"></i>設定</a>
+    </nav>
+  </aside>
+
+  <!-- メイン -->
+  <main class="flex-1 overflow-auto flex flex-col">
+    <header class="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+      <h1 class="text-xl font-bold">請求書管理</h1>
+      <button onclick="openCreate()" class="bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl font-medium text-sm flex items-center gap-2 transition-colors">
+        <i class="fa-solid fa-plus"></i> 新規作成
+      </button>
+    </header>
+
+    <div class="p-8 flex-1">
+      <!-- フィルター -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mb-6 flex items-center gap-4 flex-wrap">
+        <div class="flex gap-2" id="status-tabs">
+          <button onclick="setFilter('')" class="tab-btn active" data-status="">すべて</button>
+          <button onclick="setFilter('draft')" class="tab-btn" data-status="draft">下書き</button>
+          <button onclick="setFilter('sent')" class="tab-btn" data-status="sent">送信済み</button>
+          <button onclick="setFilter('paid')" class="tab-btn" data-status="paid">入金済み</button>
+          <button onclick="setFilter('cancelled')" class="tab-btn" data-status="cancelled">キャンセル</button>
+        </div>
+        <div class="ml-auto">
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input id="search-input" type="text" placeholder="顧客名・請求書番号" class="form-input pl-9 w-56" oninput="debounceLoad()">
+          </div>
+        </div>
+      </div>
+
+      <!-- リスト -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <table class="w-full">
+          <thead>
+            <tr class="border-b border-slate-100">
+              <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">請求書番号</th>
+              <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">顧客名</th>
+              <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">発行日</th>
+              <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">支払期限</th>
+              <th class="text-right px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">金額</th>
+              <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">ステータス</th>
+              <th class="px-6 py-4"></th>
+            </tr>
+          </thead>
+          <tbody id="invoices-list">
+            <tr><td colspan="7" class="text-center py-12 text-slate-400">読み込み中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- 新規作成モーダル -->
+<div id="modal-create" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="flex items-center justify-between p-6 border-b border-slate-100">
+      <h2 class="text-lg font-semibold">新規請求書作成</h2>
+      <button onclick="closeModal('modal-create')" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <form id="create-form" class="p-6 space-y-5">
+
+      <!-- 請求先 -->
+      <div class="bg-slate-50 rounded-xl p-4 space-y-3">
+        <div class="text-sm font-semibold text-slate-600 mb-2"><i class="fa-solid fa-building text-violet-500 mr-2"></i>請求先</div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="form-label">顧客名・会社名 <span class="text-red-500">*</span></label>
+            <input name="client_name" type="text" class="form-input" placeholder="株式会社サンプル" required>
+          </div>
+          <div>
+            <label class="form-label">メールアドレス</label>
+            <input name="client_email" type="email" class="form-input" placeholder="billing@example.com">
+          </div>
+        </div>
+        <div>
+          <label class="form-label">住所</label>
+          <input name="client_address" type="text" class="form-input" placeholder="東京都渋谷区〇〇1-2-3">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="form-label">部署名</label>
+            <input name="client_dept" type="text" class="form-input" placeholder="経理部">
+          </div>
+          <div>
+            <label class="form-label">担当者名</label>
+            <input name="client_contact" type="text" class="form-input" placeholder="鈴木 一郎">
+          </div>
+        </div>
+      </div>
+
+      <!-- 請求情報 -->
+      <div class="bg-slate-50 rounded-xl p-4 space-y-3">
+        <div class="text-sm font-semibold text-slate-600 mb-2"><i class="fa-solid fa-calendar text-violet-500 mr-2"></i>請求情報</div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="form-label">発行日</label>
+            <input name="issue_date" type="date" class="form-input" id="issue-date">
+          </div>
+          <div>
+            <label class="form-label">支払期限</label>
+            <input name="due_date" type="date" class="form-input" id="due-date">
+          </div>
+        </div>
+      </div>
+
+      <!-- 明細 -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-sm font-semibold text-slate-600"><i class="fa-solid fa-list text-violet-500 mr-2"></i>明細</div>
+          <button type="button" onclick="addItem()" class="text-xs bg-violet-50 hover:bg-violet-100 text-violet-700 px-3 py-1.5 rounded-lg font-medium transition-colors">
+            <i class="fa-solid fa-plus mr-1"></i> 明細追加
+          </button>
+        </div>
+        <div class="border border-slate-200 rounded-xl overflow-hidden">
+          <div class="grid grid-cols-12 gap-0 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 border-b border-slate-200">
+            <div class="col-span-5">品目・内容</div>
+            <div class="col-span-2 text-center">数量</div>
+            <div class="col-span-3 text-right">単価（円）</div>
+            <div class="col-span-2 text-right">金額</div>
+          </div>
+          <div id="items-container">
+            <!-- 明細行はJS追加 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 合計 -->
+      <div class="flex flex-col items-end space-y-2">
+        <div class="w-72 space-y-2">
+          <div class="flex justify-between text-sm">
+            <span class="text-slate-500">小計</span>
+            <span id="subtotal-display" class="font-medium">¥0</span>
+          </div>
+          <div class="flex items-center justify-between text-sm gap-3">
+            <span class="text-slate-500">値引き</span>
+            <div class="flex items-center gap-1">
+              <span class="text-slate-400">¥</span>
+              <input name="discount" type="number" value="0" min="0" class="form-input w-28 text-right text-sm py-1" oninput="recalc()">
+            </div>
+          </div>
+          <div class="flex items-center justify-between text-sm gap-3">
+            <span class="text-slate-500">消費税率</span>
+            <div class="flex items-center gap-1">
+              <select name="tax_rate" class="form-input w-28 text-sm py-1" onchange="recalc()">
+                <option value="10">10%</option>
+                <option value="8">8%（軽減）</option>
+                <option value="0">0%（非課税）</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-slate-500">消費税</span>
+            <span id="tax-display" class="font-medium">¥0</span>
+          </div>
+          <div class="flex justify-between border-t border-slate-200 pt-2">
+            <span class="font-semibold">合計</span>
+            <span id="total-display" class="font-bold text-lg text-violet-700">¥0</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">備考</label>
+        <textarea name="notes" class="form-input" rows="2" placeholder="振込期限、その他備考"></textarea>
+      </div>
+
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="closeModal('modal-create')" class="flex-1 py-3 border border-slate-200 rounded-xl font-medium text-slate-600 hover:bg-slate-50 transition-colors">キャンセル</button>
+        <button type="submit" class="flex-1 py-3 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-medium transition-colors">
+          <i class="fa-solid fa-plus mr-2"></i>作成する
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 詳細モーダル -->
+<div id="modal-detail" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="flex items-center justify-between p-6 border-b border-slate-100">
+      <h2 class="text-lg font-semibold" id="detail-title">請求書詳細</h2>
+      <button onclick="closeModal('modal-detail')" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div id="detail-content" class="p-6"></div>
+  </div>
+</div>
+
+<!-- トースト -->
+<div id="toast" class="fixed bottom-6 right-6 z-50 hidden">
+  <div id="toast-inner" class="flex items-center gap-3 bg-white border border-slate-200 shadow-xl rounded-xl px-5 py-3.5 text-sm font-medium"></div>
+</div>
+
+<script>
+let currentStatus = '';
+let debounceTimer;
+let itemCount = 0;
+
+const statusLabels = {
+  draft: { label: '下書き', cls: 'bg-slate-100 text-slate-600' },
+  sent: { label: '送信済み', cls: 'bg-amber-100 text-amber-700' },
+  paid: { label: '入金済み', cls: 'bg-green-100 text-green-700' },
+  cancelled: { label: 'キャンセル', cls: 'bg-red-100 text-red-600' },
+};
+
+function badge(status) {
+  const s = statusLabels[status] || { label: status, cls: 'bg-slate-100 text-slate-600' };
+  return `<span class="text-xs px-2.5 py-1 rounded-full font-medium ${s.cls}">${s.label}</span>`;
+}
+
+function fmtMoney(n) { return '¥' + Number(n || 0).toLocaleString('ja-JP'); }
+
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  const inner = document.getElementById('toast-inner');
+  const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
+  const color = type === 'success' ? 'text-green-600' : type === 'error' ? 'text-red-600' : 'text-blue-600';
+  inner.innerHTML = `<span class="${color} font-bold">${icon}</span> ${msg}`;
+  el.classList.remove('hidden');
+  setTimeout(() => el.classList.add('hidden'), 3500);
+}
+
+function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+function setFilter(status) {
+  currentStatus = status;
+  document.querySelectorAll('#status-tabs .tab-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.status === status);
+  });
+  loadInvoices();
+}
+
+function debounceLoad() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(loadInvoices, 300);
+}
+
+function addItem(name = '', qty = 1, price = 0) {
+  const i = itemCount++;
+  const container = document.getElementById('items-container');
+  const row = document.createElement('div');
+  row.className = 'grid grid-cols-12 gap-1 px-3 py-2 border-b border-slate-100 last:border-0 items-center';
+  row.id = `item-row-${i}`;
+  row.innerHTML = `
+    <input type="text" class="col-span-5 form-input py-1.5 text-sm" placeholder="品目名" data-item="${i}" data-field="name" value="${name}" oninput="recalc()">
+    <input type="number" class="col-span-2 form-input py-1.5 text-sm text-center" placeholder="1" min="1" data-item="${i}" data-field="qty" value="${qty}" oninput="recalc()">
+    <input type="number" class="col-span-3 form-input py-1.5 text-sm text-right" placeholder="0" min="0" data-item="${i}" data-field="unit_price" value="${price}" oninput="recalc()">
+    <div class="col-span-1 text-right text-sm font-medium text-slate-700" id="row-amount-${i}">${fmtMoney(qty * price)}</div>
+    <button type="button" onclick="removeItem(${i})" class="col-span-1 flex items-center justify-center text-slate-300 hover:text-red-400 transition-colors">
+      <i class="fa-solid fa-xmark text-xs"></i>
+    </button>
+  `;
+  container.appendChild(row);
+  recalc();
+}
+
+function removeItem(i) {
+  const row = document.getElementById(`item-row-${i}`);
+  if (row) row.remove();
+  recalc();
+}
+
+function getItems() {
+  const items = [];
+  document.querySelectorAll('[data-field="name"]').forEach(el => {
+    const i = el.dataset.item;
+    const name = el.value;
+    const qty = parseInt(document.querySelector(`[data-item="${i}"][data-field="qty"]`)?.value || '1');
+    const unit_price = parseInt(document.querySelector(`[data-item="${i}"][data-field="unit_price"]`)?.value || '0');
+    if (name) items.push({ name, qty, unit_price });
+    const amountEl = document.getElementById(`row-amount-${i}`);
+    if (amountEl) amountEl.textContent = fmtMoney(qty * unit_price);
+  });
+  return items;
+}
+
+function recalc() {
+  const items = getItems();
+  const subtotal = items.reduce((s, i) => s + i.qty * i.unit_price, 0);
+  const discount = parseInt(document.querySelector('[name="discount"]')?.value || '0');
+  const taxRate = parseInt(document.querySelector('[name="tax_rate"]')?.value || '10');
+  const taxable = subtotal - discount;
+  const tax = Math.floor(taxable * taxRate / 100);
+  const total = taxable + tax;
+
+  document.getElementById('subtotal-display').textContent = fmtMoney(subtotal);
+  document.getElementById('tax-display').textContent = fmtMoney(tax);
+  document.getElementById('total-display').textContent = fmtMoney(total);
+}
+
+function openCreate() {
+  document.getElementById('create-form').reset();
+  document.getElementById('items-container').innerHTML = '';
+  itemCount = 0;
+
+  const today = new Date();
+  const dueDate = new Date(today);
+  dueDate.setDate(dueDate.getDate() + 30);
+  document.getElementById('issue-date').value = today.toISOString().split('T')[0];
+  document.getElementById('due-date').value = dueDate.toISOString().split('T')[0];
+
+  addItem('', 1, 0);
+  recalc();
+  openModal('modal-create');
+}
+
+document.getElementById('create-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const data = Object.fromEntries(fd.entries());
+  data.items = getItems();
+  data.discount = parseInt(data.discount || 0);
+  data.tax_rate = parseInt(data.tax_rate || 10);
+
+  if (!data.items.length) { toast('明細を1件以上入力してください', 'error'); return; }
+
+  try {
+    const res = await fetch('/api/invoices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error);
+    closeModal('modal-create');
+    toast(`請求書 ${result.invoice_number} を作成しました`);
+    loadInvoices();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+});
+
+async function loadInvoices() {
+  const q = document.getElementById('search-input').value;
+  const params = new URLSearchParams({ status: currentStatus, q });
+  const data = await fetch(`/api/invoices?${params}`).then(r => r.json());
+  const tbody = document.getElementById('invoices-list');
+
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-12 text-slate-400 text-sm">請求書がありません</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(inv => `
+    <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+      <td class="px-6 py-4">
+        <div class="font-medium text-sm font-mono">${inv.invoice_number}</div>
+      </td>
+      <td class="px-6 py-4">
+        <div class="font-medium text-sm">${inv.client_name}</div>
+        <div class="text-xs text-slate-400">${inv.client_email || ''}</div>
+      </td>
+      <td class="px-6 py-4 text-sm text-slate-600">${inv.issue_date || '—'}</td>
+      <td class="px-6 py-4 text-sm ${isOverdue(inv) ? 'text-red-500 font-medium' : 'text-slate-600'}">${inv.due_date || '—'}${isOverdue(inv) ? ' <span class="text-xs">⚠ 期限切れ</span>' : ''}</td>
+      <td class="px-6 py-4 text-right font-medium">${fmtMoney(inv.total)}</td>
+      <td class="px-6 py-4">${badge(inv.status)}</td>
+      <td class="px-6 py-4">
+        <div class="flex items-center gap-2 justify-end">
+          <button onclick="viewDetail('${inv.id}')" class="text-slate-400 hover:text-violet-600 p-1.5 rounded-lg hover:bg-violet-50 transition-colors" title="詳細">
+            <i class="fa-solid fa-eye text-sm"></i>
+          </button>
+          <a href="/api/invoices/${inv.id}/pdf" target="_blank" class="text-slate-400 hover:text-violet-600 p-1.5 rounded-lg hover:bg-violet-50 transition-colors" title="PDF">
+            <i class="fa-solid fa-file-pdf text-sm"></i>
+          </a>
+          ${inv.status !== 'paid' && inv.status !== 'cancelled' ? `
+          <button onclick="sendInvoice('${inv.id}', '${inv.client_name}')" class="text-slate-400 hover:text-amber-600 p-1.5 rounded-lg hover:bg-amber-50 transition-colors" title="メール送信">
+            <i class="fa-solid fa-paper-plane text-sm"></i>
+          </button>` : ''}
+          ${inv.status === 'sent' ? `
+          <button onclick="markPaid('${inv.id}')" class="text-slate-400 hover:text-green-600 p-1.5 rounded-lg hover:bg-green-50 transition-colors" title="入金済みにする">
+            <i class="fa-solid fa-check text-sm"></i>
+          </button>` : ''}
+          <button onclick="deleteInvoice('${inv.id}')" class="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="削除">
+            <i class="fa-solid fa-trash text-sm"></i>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function isOverdue(inv) {
+  return inv.status === 'sent' && inv.due_date && new Date(inv.due_date) < new Date();
+}
+
+async function sendInvoice(id, name) {
+  if (!confirm(`${name}様にメールで請求書を送信しますか？`)) return;
+  try {
+    const res = await fetch(`/api/invoices/${id}/send`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    toast('請求書メールを送信しました');
+    loadInvoices();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function markPaid(id) {
+  if (!confirm('入金済みとしてマークしますか？')) return;
+  await fetch(`/api/invoices/${id}/paid`, { method: 'POST' });
+  toast('入金済みにしました');
+  loadInvoices();
+}
+
+async function deleteInvoice(id) {
+  if (!confirm('この請求書を削除しますか？')) return;
+  await fetch(`/api/invoices/${id}`, { method: 'DELETE' });
+  toast('削除しました');
+  loadInvoices();
+}
+
+async function viewDetail(id) {
+  const inv = await fetch(`/api/invoices/${id}`).then(r => r.json());
+  const items = JSON.parse(inv.items || '[]');
+  document.getElementById('detail-title').textContent = `${inv.invoice_number} - ${inv.client_name}`;
+
+  const content = document.getElementById('detail-content');
+  content.innerHTML = `
+    <div class="grid grid-cols-2 gap-4 mb-5">
+      <div>
+        <div class="text-xs text-slate-400 mb-1">請求先</div>
+        <div class="font-semibold">${inv.client_name}</div>
+        <div class="text-sm text-slate-500">${inv.client_email || ''}</div>
+        <div class="text-sm text-slate-500">${inv.client_address || ''}</div>
+      </div>
+      <div class="text-right">
+        <div class="text-xs text-slate-400 mb-1">ステータス</div>
+        ${badge(inv.status)}
+        <div class="text-sm text-slate-500 mt-2">発行日: ${inv.issue_date || '—'}</div>
+        <div class="text-sm ${isOverdue(inv) ? 'text-red-500 font-medium' : 'text-slate-500'}">期限: ${inv.due_date || '—'}</div>
+      </div>
+    </div>
+
+    <div class="border border-slate-200 rounded-xl overflow-hidden mb-5">
+      <table class="w-full text-sm">
+        <thead><tr class="bg-slate-50 border-b border-slate-200">
+          <th class="text-left px-4 py-2 text-xs font-semibold text-slate-500">品目</th>
+          <th class="text-center px-4 py-2 text-xs font-semibold text-slate-500">数量</th>
+          <th class="text-right px-4 py-2 text-xs font-semibold text-slate-500">単価</th>
+          <th class="text-right px-4 py-2 text-xs font-semibold text-slate-500">金額</th>
+        </tr></thead>
+        <tbody>
+          ${items.map(i => `
+            <tr class="border-b border-slate-100">
+              <td class="px-4 py-2">${i.name}</td>
+              <td class="px-4 py-2 text-center">${i.qty}</td>
+              <td class="px-4 py-2 text-right">${fmtMoney(i.unit_price)}</td>
+              <td class="px-4 py-2 text-right font-medium">${fmtMoney(i.qty * i.unit_price)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="flex flex-col items-end space-y-1.5 mb-5">
+      <div class="flex gap-8 text-sm"><span class="text-slate-500">小計</span><span>${fmtMoney(inv.subtotal)}</span></div>
+      ${inv.discount > 0 ? `<div class="flex gap-8 text-sm"><span class="text-slate-500">値引き</span><span class="text-red-500">-${fmtMoney(inv.discount)}</span></div>` : ''}
+      <div class="flex gap-8 text-sm"><span class="text-slate-500">消費税(${inv.tax_rate}%)</span><span>${fmtMoney(inv.tax_amount)}</span></div>
+      <div class="flex gap-8 font-bold text-lg border-t border-slate-200 pt-2 w-64 justify-between">
+        <span>合計</span><span class="text-violet-700">${fmtMoney(inv.total)}</span>
+      </div>
+    </div>
+
+    ${inv.notes ? `<div class="bg-slate-50 rounded-xl p-4 text-sm text-slate-600 mb-5"><strong>備考:</strong> ${inv.notes}</div>` : ''}
+
+    <div class="flex gap-3">
+      <a href="/api/invoices/${id}/pdf" target="_blank"
+         class="flex-1 py-3 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-medium text-sm text-center flex items-center justify-center gap-2">
+        <i class="fa-solid fa-file-pdf"></i> PDF ダウンロード
+      </a>
+      ${inv.status !== 'paid' && inv.status !== 'cancelled' ? `
+      <button onclick="sendInvoice('${id}', '${inv.client_name}'); closeModal('modal-detail');"
+         class="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2">
+        <i class="fa-solid fa-paper-plane"></i> メールで送信
+      </button>` : ''}
+      ${inv.status === 'sent' ? `
+      <button onclick="markPaid('${id}'); closeModal('modal-detail');"
+         class="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2">
+        <i class="fa-solid fa-check"></i> 入金済みにする
+      </button>` : ''}
+    </div>
+  `;
+  openModal('modal-detail');
+}
+
+// URLパラメータ処理
+const urlParams = new URLSearchParams(location.search);
+if (urlParams.get('action') === 'new') openCreate();
+if (urlParams.get('id')) viewDetail(urlParams.get('id'));
+
+loadInvoices();
+</script>
+</body>
+</html>

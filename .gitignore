@@ -128,3 +128,10 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+# App - 除外ファイル
+app/node_modules/
+app/data/
+app/uploads/contracts/
+app/uploads/signed/
+app/uploads/logos/
+app/.env
