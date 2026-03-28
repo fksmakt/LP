@@ -134,4 +134,5 @@ app/data/
 app/uploads/contracts/
 app/uploads/signed/
 app/uploads/logos/
+app/uploads/invoices/
 app/.env
