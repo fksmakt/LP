@@ -37,11 +37,25 @@ function formatMoney(amount) {
   return '¥' + Number(amount).toLocaleString('ja-JP');
 }
 
-// 契約書PDF生成（従業員）
+// 契約書PDF生成（正社員）
+async function generateFulltimeContract(contract, companySettings) {
+  return generateEmployeeContractBase(contract, companySettings, 'fulltime');
+}
+
+// 契約書PDF生成（パート・アルバイト）
+async function generateParttimeContract(contract, companySettings) {
+  return generateEmployeeContractBase(contract, companySettings, 'parttime');
+}
+
+// 旧名称エイリアス（後方互換）
 async function generateEmployeeContract(contract, companySettings) {
+  return generateEmployeeContractBase(contract, companySettings, 'fulltime');
+}
+
+async function generateEmployeeContractBase(contract, companySettings, employmentType) {
+  const isParttime = employmentType === 'parttime';
   const pdfDoc = await PDFDocument.create();
   const font = await loadJpFont(pdfDoc);
-  const boldFont = await loadJpFont(pdfDoc);
 
   const page = pdfDoc.addPage([595, 842]); // A4
   const { width, height } = page.getSize();
@@ -52,14 +66,15 @@ async function generateEmployeeContract(contract, companySettings) {
   const draw = (text, x, yPos, size = 10, color = rgb(0, 0, 0)) => {
     page.drawText(text || '', { x, y: yPos, size, font, color });
   };
-
   const line = (x1, y1, x2, y2) => {
     page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 },
       thickness: 0.5, color: rgb(0.5, 0.5, 0.5) });
   };
 
   // タイトル
-  draw('労働契約書', width / 2 - 50, y, 18);
+  const title = isParttime ? 'パートタイム・アルバイト労働契約書' : '労働契約書（正社員）';
+  const titleWidth = isParttime ? 170 : 110;
+  draw(title, width / 2 - titleWidth / 2, y, 16);
   y -= 40;
 
   // 契約日
@@ -86,8 +101,39 @@ async function generateEmployeeContract(contract, companySettings) {
   line(margin, y, width - margin, y);
   y -= 20;
 
+  // 雇用形態明記
+  if (isParttime) {
+    draw(`雇用形態：パートタイム・アルバイト`, margin, y, 10);
+    y -= 20;
+  }
+
   // 契約内容
-  const sections = [
+  const sections = isParttime ? [
+    { title: '第1条（雇用期間）', content: [
+      `雇用開始日：${formatDate(contract.start_date)}`,
+      contract.end_date
+        ? `雇用終了日：${formatDate(contract.end_date)}（期間満了後、双方合意の上で更新する場合があります）`
+        : '期間の定め：なし',
+    ]},
+    { title: '第2条（業務内容・就業場所）', content: [
+      `業務内容：${contract.position || ''}`,
+      `就業場所：${contract.work_location || ''}`,
+    ]},
+    { title: '第3条（勤務時間・シフト）', content: [
+      `勤務時間帯：${contract.work_hours || 'シフト表による'}`,
+      '休憩時間：労働基準法の定めに準じます（6時間超:45分、8時間超:1時間）',
+    ]},
+    { title: '第4条（賃金）', content: [
+      `時給：${formatMoney(contract.salary)}（税込）`,
+      '支払日：毎月末日締め、翌月25日払い（銀行振込）',
+    ]},
+    { title: '第5条（社会保険等）', content: [
+      '週所定労働時間・月額賃金が法定要件を満たす場合、各種社会保険に加入します。',
+    ]},
+    { title: '第6条（有給休暇）', content: [
+      '継続勤務6ヶ月経過後、法定の条件を満たした場合に有給休暇を付与します。',
+    ]},
+  ] : [
     { title: '第1条（雇用期間）', content: [
       `雇用開始日：${formatDate(contract.start_date)}`,
       contract.end_date ? `雇用終了日：${formatDate(contract.end_date)}` : '期間の定め：なし（無期雇用）',
@@ -98,10 +144,14 @@ async function generateEmployeeContract(contract, companySettings) {
     ]},
     { title: '第3条（労働時間・休日）', content: [
       `労働時間：${contract.work_hours || '所定労働時間に準ずる'}`,
+      '所定休日：週2日（シフト制）および法定祝日',
     ]},
     { title: '第4条（賃金）', content: [
       `月額基本給：${formatMoney(contract.salary)}（税込）`,
-      '支払日：毎月末日締め、翌月25日払い',
+      '支払日：毎月末日締め、翌月25日払い（銀行振込）',
+    ]},
+    { title: '第5条（社会保険）', content: [
+      '雇用保険・健康保険・厚生年金保険・労災保険に加入します。',
     ]},
   ];
 
@@ -121,7 +171,8 @@ async function generateEmployeeContract(contract, companySettings) {
 
   // 備考
   if (contract.notes) {
-    draw('【備考】', margin, y, 11);
+    if (y < 80) { const np = pdfDoc.addPage([595, 842]); y = np.getSize().height - margin; }
+    draw('【備考・特記事項】', margin, y, 11);
     y -= 18;
     draw(contract.notes, margin + 10, y, 10);
     y -= 30;
@@ -138,14 +189,12 @@ async function generateEmployeeContract(contract, companySettings) {
   draw('以上の内容に同意し、本契約を締結します。', margin, y, 10);
   y -= 35;
 
-  // 甲署名欄
   draw('甲（雇用者）署名：', margin, y, 10);
   line(margin + 90, y - 3, margin + 300, y - 3);
   draw('日付：', margin + 310, y, 10);
   line(margin + 340, y - 3, width - margin, y - 3);
   y -= 50;
 
-  // 乙署名欄
   draw('乙（労働者）署名：', margin, y, 10);
   line(margin + 90, y - 3, margin + 300, y - 3);
   draw('日付：', margin + 310, y, 10);
@@ -438,7 +487,9 @@ async function addSignatureToTemplate(templatePath, signatureDataUrl, contractDa
 }
 
 module.exports = {
-  generateEmployeeContract,
+  generateFulltimeContract,
+  generateParttimeContract,
+  generateEmployeeContract,   // 後方互換エイリアス
   generateContractorContract,
   embedSignature,
   addSignatureToTemplate,

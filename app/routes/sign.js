@@ -4,7 +4,8 @@ const path = require('path');
 const fs = require('fs');
 const db = require('../db');
 const {
-  generateEmployeeContract,
+  generateFulltimeContract,
+  generateParttimeContract,
   generateContractorContract,
   embedSignature,
   addSignatureToTemplate,
@@ -75,8 +76,10 @@ router.get('/api/:token/pdf', async (req, res) => {
     }
 
     let pdfBuffer;
-    if (contract.type === 'employee') {
-      pdfBuffer = await generateEmployeeContract(contract, settings);
+    if (contract.type === 'fulltime') {
+      pdfBuffer = await generateFulltimeContract(contract, settings);
+    } else if (contract.type === 'parttime') {
+      pdfBuffer = await generateParttimeContract(contract, settings);
     } else {
       pdfBuffer = await generateContractorContract(contract, settings);
     }
@@ -136,8 +139,10 @@ router.post('/api/:token/submit', async (req, res) => {
     if (!pdfBuffer) {
       // ベースPDFを生成してから署名を埋め込む
       let basePdf;
-      if (contract.type === 'employee') {
-        basePdf = await generateEmployeeContract(contract, settings);
+      if (contract.type === 'fulltime') {
+        basePdf = await generateFulltimeContract(contract, settings);
+      } else if (contract.type === 'parttime') {
+        basePdf = await generateParttimeContract(contract, settings);
       } else {
         basePdf = await generateContractorContract(contract, settings);
       }

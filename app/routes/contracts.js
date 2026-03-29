@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
 const db = require('../db');
-const { generateEmployeeContract, generateContractorContract, embedSignature } = require('../utils/pdf');
+const { generateFulltimeContract, generateParttimeContract, generateContractorContract, embedSignature } = require('../utils/pdf');
 const { sendSigningRequest } = require('../utils/mailer');
 
 function getSettings() {
@@ -50,7 +50,7 @@ router.post('/', async (req, res) => {
       template_id,
     } = req.body;
 
-    if (!type || !['employee', 'contractor'].includes(type)) {
+    if (!type || !['fulltime', 'parttime', 'contractor'].includes(type)) {
       return res.status(400).json({ error: '契約種別が無効です' });
     }
     if (!recipient_name) return res.status(400).json({ error: '氏名は必須です' });
@@ -119,8 +119,10 @@ router.get('/:id/pdf', async (req, res) => {
     }
 
     let pdfBuffer;
-    if (contract.type === 'employee') {
-      pdfBuffer = await generateEmployeeContract(contract, settings);
+    if (contract.type === 'fulltime') {
+      pdfBuffer = await generateFulltimeContract(contract, settings);
+    } else if (contract.type === 'parttime') {
+      pdfBuffer = await generateParttimeContract(contract, settings);
     } else {
       pdfBuffer = await generateContractorContract(contract, settings);
     }

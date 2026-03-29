@@ -63,7 +63,8 @@
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mb-6 flex items-center gap-4 flex-wrap">
         <div class="flex gap-2" id="type-tabs">
           <button onclick="setFilter('type','')" class="tab-btn active" data-type="">すべて</button>
-          <button onclick="setFilter('type','employee')" class="tab-btn" data-type="employee">雇用契約</button>
+          <button onclick="setFilter('type','fulltime')" class="tab-btn" data-type="fulltime">正社員</button>
+          <button onclick="setFilter('type','parttime')" class="tab-btn" data-type="parttime">パート・アルバイト</button>
           <button onclick="setFilter('type','contractor')" class="tab-btn" data-type="contractor">業務委託</button>
         </div>
         <div class="h-6 w-px bg-slate-200 hidden md:block"></div>
@@ -115,21 +116,29 @@
 
     <div class="p-6 border-b border-slate-100">
       <label class="form-label">契約種別</label>
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-3 gap-3">
         <label class="relative cursor-pointer">
-          <input type="radio" name="contract-type" value="employee" class="peer sr-only" checked>
-          <div class="border-2 border-slate-200 peer-checked:border-indigo-500 peer-checked:bg-indigo-50 rounded-xl p-4 transition-all">
+          <input type="radio" name="contract-type" value="fulltime" class="peer sr-only" checked>
+          <div class="border-2 border-slate-200 peer-checked:border-indigo-500 peer-checked:bg-indigo-50 rounded-xl p-4 transition-all text-center">
             <i class="fa-solid fa-user-tie text-indigo-500 text-xl mb-2 block"></i>
-            <div class="font-medium text-sm">雇用契約書</div>
-            <div class="text-xs text-slate-400 mt-1">正社員・パートタイム</div>
+            <div class="font-medium text-sm">正社員</div>
+            <div class="text-xs text-slate-400 mt-1">無期・月給制</div>
+          </div>
+        </label>
+        <label class="relative cursor-pointer">
+          <input type="radio" name="contract-type" value="parttime" class="peer sr-only">
+          <div class="border-2 border-slate-200 peer-checked:border-indigo-500 peer-checked:bg-indigo-50 rounded-xl p-4 transition-all text-center">
+            <i class="fa-solid fa-clock text-indigo-500 text-xl mb-2 block"></i>
+            <div class="font-medium text-sm">パート・アルバイト</div>
+            <div class="text-xs text-slate-400 mt-1">時給・シフト制</div>
           </div>
         </label>
         <label class="relative cursor-pointer">
           <input type="radio" name="contract-type" value="contractor" class="peer sr-only">
-          <div class="border-2 border-slate-200 peer-checked:border-indigo-500 peer-checked:bg-indigo-50 rounded-xl p-4 transition-all">
+          <div class="border-2 border-slate-200 peer-checked:border-indigo-500 peer-checked:bg-indigo-50 rounded-xl p-4 transition-all text-center">
             <i class="fa-solid fa-handshake text-indigo-500 text-xl mb-2 block"></i>
-            <div class="font-medium text-sm">業務委託契約書</div>
-            <div class="text-xs text-slate-400 mt-1">フリーランス・外部委託</div>
+            <div class="font-medium text-sm">業務委託</div>
+            <div class="text-xs text-slate-400 mt-1">フリーランス</div>
           </div>
         </label>
       </div>
@@ -168,26 +177,52 @@
         </div>
       </div>
 
-      <div id="employee-fields" class="bg-slate-50 rounded-xl p-4 space-y-3">
-        <div class="text-sm font-semibold text-slate-600 mb-2"><i class="fa-solid fa-briefcase text-indigo-500 mr-2"></i>雇用条件</div>
+      <!-- 正社員フィールド -->
+      <div id="fulltime-fields" class="bg-slate-50 rounded-xl p-4 space-y-3">
+        <div class="text-sm font-semibold text-slate-600 mb-2"><i class="fa-solid fa-briefcase text-indigo-500 mr-2"></i>雇用条件（正社員）</div>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="form-label">職種・役職</label>
-            <input name="position" type="text" class="form-input" placeholder="エンジニア">
+            <input name="position" type="text" class="form-input" placeholder="ホールスタッフ・調理師など">
           </div>
           <div>
-            <label class="form-label">月額給与（円）</label>
-            <input name="salary" type="number" class="form-input" placeholder="300000" min="0">
+            <label class="form-label">月額基本給（円）</label>
+            <input name="salary" type="number" class="form-input" placeholder="220000" min="0">
           </div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="form-label">就業場所</label>
-            <input name="work_location" type="text" class="form-input" placeholder="東京本社">
+            <input name="work_location" type="text" class="form-input" placeholder="○○店">
           </div>
           <div>
             <label class="form-label">労働時間</label>
-            <input name="work_hours" type="text" class="form-input" placeholder="9:00〜18:00（休憩1時間）">
+            <input name="work_hours" type="text" class="form-input" placeholder="10:00〜19:00（休憩1時間）">
+          </div>
+        </div>
+      </div>
+
+      <!-- パート・アルバイトフィールド -->
+      <div id="parttime-fields" class="bg-slate-50 rounded-xl p-4 space-y-3 hidden">
+        <div class="text-sm font-semibold text-slate-600 mb-2"><i class="fa-solid fa-clock text-indigo-500 mr-2"></i>雇用条件（パート・アルバイト）</div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="form-label">業務内容・職種</label>
+            <input name="position" type="text" class="form-input" placeholder="ホールスタッフ・キッチンなど">
+          </div>
+          <div>
+            <label class="form-label">時給（円）</label>
+            <input name="salary" type="number" class="form-input" placeholder="1100" min="0">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="form-label">就業場所</label>
+            <input name="work_location" type="text" class="form-input" placeholder="○○店">
+          </div>
+          <div>
+            <label class="form-label">勤務時間帯・シフト</label>
+            <input name="work_hours" type="text" class="form-input" placeholder="シフト表による（週3〜5日）">
           </div>
         </div>
       </div>
@@ -304,6 +339,17 @@ const statusLabels = {
   cancelled: { label: 'キャンセル', cls: 'bg-red-100 text-red-600' },
 };
 
+const typeLabels = {
+  fulltime:   { label: '正社員',         cls: 'bg-indigo-50 text-indigo-700' },
+  parttime:   { label: 'パート・アルバイト', cls: 'bg-purple-50 text-purple-700' },
+  contractor: { label: '業務委託',        cls: 'bg-sky-50 text-sky-700' },
+};
+
+function typeLabel(type) {
+  const t = typeLabels[type] || { label: type, cls: 'bg-slate-100 text-slate-600' };
+  return `<span class="text-xs px-2.5 py-1 rounded-full font-medium ${t.cls}">${t.label}</span>`;
+}
+
 function badge(status) {
   const s = statusLabels[status] || { label: status, cls: 'bg-slate-100 text-slate-600' };
   return `<span class="text-xs px-2.5 py-1 rounded-full font-medium ${s.cls}">${s.label}</span>`;
@@ -353,11 +399,7 @@ async function loadContracts() {
         <div class="font-medium">${esc(c.recipient_name)}</div>
         <div class="text-xs text-slate-400">${esc(c.recipient_email)}</div>
       </td>
-      <td class="px-6 py-4">
-        <span class="text-xs px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 font-medium">
-          ${c.type === 'employee' ? '雇用契約' : '業務委託'}
-        </span>
-      </td>
+      <td class="px-6 py-4">${typeLabel(c.type)}</td>
       <td class="px-6 py-4 text-sm text-slate-600">${c.start_date || '—'}</td>
       <td class="px-6 py-4">${badge(c.status)}</td>
       <td class="px-6 py-4 text-xs text-slate-400">${(c.created_at || '').split(' ')[0]}</td>
@@ -402,29 +444,29 @@ async function loadTemplates() {
     templates.forEach(t => {
       const opt = document.createElement('option');
       opt.value = t.id;
-      opt.textContent = `${t.name} (${t.type === 'employee_contract' ? '雇用' : '業務委託'})`;
+      const typeStr = t.type === 'fulltime_contract' ? '正社員' : t.type === 'parttime_contract' ? 'パート' : t.type === 'employee_contract' ? '雇用' : '業務委託';
+      opt.textContent = `${t.name} (${typeStr})`;
       sel.appendChild(opt);
     });
   } catch (e) { /* ignore */ }
 }
 
 // 契約種別切り替え
+function switchTypeFields(type) {
+  document.getElementById('fulltime-fields').classList.toggle('hidden', type !== 'fulltime');
+  document.getElementById('parttime-fields').classList.toggle('hidden', type !== 'parttime');
+  document.getElementById('contractor-fields').classList.toggle('hidden', type !== 'contractor');
+}
+
 document.querySelectorAll('[name="contract-type"]').forEach(r => {
-  r.addEventListener('change', () => {
-    const isEmployee = r.value === 'employee';
-    document.getElementById('employee-fields').classList.toggle('hidden', !isEmployee);
-    document.getElementById('contractor-fields').classList.toggle('hidden', isEmployee);
-  });
+  r.addEventListener('change', () => switchTypeFields(r.value));
 });
 
 function openCreate() {
   const form = document.getElementById('create-form');
   form.reset();
-  // 種別を雇用に戻す
-  document.querySelector('[name="contract-type"][value="employee"]').checked = true;
-  document.getElementById('employee-fields').classList.remove('hidden');
-  document.getElementById('contractor-fields').classList.add('hidden');
-  // デフォルト日付
+  document.querySelector('[name="contract-type"][value="fulltime"]').checked = true;
+  switchTypeFields('fulltime');
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('form-start-date').value = today;
   openModal('modal-create');
@@ -510,28 +552,35 @@ function copySignUrl() {
 async function viewDetail(id) {
   const c = await fetch(`/api/contracts/${id}`).then(r => r.json());
   const content = document.getElementById('detail-content');
-  document.getElementById('detail-title').textContent =
-    `${c.recipient_name} — ${c.type === 'employee' ? '雇用契約書' : '業務委託契約書'}`;
+  const titleMap = { fulltime: '正社員労働契約書', parttime: 'パートタイム・アルバイト労働契約書', contractor: '業務委託契約書' };
+  document.getElementById('detail-title').textContent = `${c.recipient_name} — ${titleMap[c.type] || '契約書'}`;
 
   const fmt = v => v || '—';
   const fmtMoney = n => n ? '¥' + Number(n).toLocaleString('ja-JP') : '—';
 
+  const isEmployee = c.type === 'fulltime' || c.type === 'parttime';
   const rows = [
     ['ステータス', badge(c.status)],
+    ['種別', typeLabel(c.type)],
     ['氏名', fmt(c.recipient_name)],
     ['メール', fmt(c.recipient_email)],
     ['住所', fmt(c.recipient_address)],
     ['開始日', fmt(c.start_date)],
     ['終了日', c.end_date || '無期限'],
-    c.type === 'employee'
-      ? ['職種', fmt(c.position)]
+    isEmployee
+      ? ['職種・業務内容', fmt(c.position)]
       : ['業務名', fmt(c.project_name)],
-    c.type === 'employee'
-      ? ['月額給与', fmtMoney(c.salary)]
-      : ['委託報酬', fmtMoney(c.contract_amount)],
-    c.type === 'employee'
+    c.type === 'parttime'
+      ? ['時給', fmtMoney(c.salary)]
+      : c.type === 'fulltime'
+        ? ['月額基本給', fmtMoney(c.salary)]
+        : ['委託報酬', fmtMoney(c.contract_amount)],
+    isEmployee
       ? ['就業場所', fmt(c.work_location)]
       : ['成果物', fmt(c.deliverables)],
+    isEmployee
+      ? ['勤務時間', fmt(c.work_hours)]
+      : ['支払条件', fmt(c.payment_terms)],
     ['備考', fmt(c.notes)],
     ['作成日', fmt(c.created_at)],
     ['送信日', fmt(c.sent_at)],

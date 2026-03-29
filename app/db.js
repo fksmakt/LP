@@ -78,7 +78,7 @@ db.pragma('foreign_keys = ON');
 db.exec(`
   CREATE TABLE IF NOT EXISTS contracts (
     id TEXT PRIMARY KEY,
-    type TEXT NOT NULL CHECK(type IN ('employee','contractor')),
+    type TEXT NOT NULL CHECK(type IN ('fulltime','parttime','contractor')),
     status TEXT NOT NULL DEFAULT 'draft'
       CHECK(status IN ('draft','sent','signed','cancelled')),
     employer_name TEXT,
@@ -158,6 +158,64 @@ db.exec(`
     value TEXT NOT NULL
   );
 `);
+
+// ---- マイグレーション: contracts.type を fulltime/parttime/contractor に拡張 ----
+{
+  const ddlRow = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='contracts'").get();
+  if (ddlRow && ddlRow.sql && ddlRow.sql.includes("'employee'")) {
+    // 旧スキーマ（employee/contractor）→ 新スキーマへ移行
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS contracts_new (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL CHECK(type IN ('fulltime','parttime','contractor')),
+        status TEXT NOT NULL DEFAULT 'draft'
+          CHECK(status IN ('draft','sent','signed','cancelled')),
+        employer_name TEXT,
+        employer_address TEXT,
+        employer_rep TEXT,
+        recipient_name TEXT NOT NULL,
+        recipient_email TEXT NOT NULL,
+        recipient_address TEXT,
+        start_date TEXT,
+        end_date TEXT,
+        position TEXT,
+        work_location TEXT,
+        work_hours TEXT,
+        salary INTEGER,
+        project_name TEXT,
+        contract_amount INTEGER,
+        payment_terms TEXT,
+        deliverables TEXT,
+        template_id TEXT,
+        pdf_path TEXT,
+        signed_pdf_path TEXT,
+        sign_token TEXT UNIQUE,
+        sign_expires_at TEXT,
+        signer_ip TEXT,
+        signature_data TEXT,
+        notes TEXT,
+        created_at TEXT DEFAULT (datetime('now','localtime')),
+        sent_at TEXT,
+        signed_at TEXT
+      )
+    `);
+    db.exec(`
+      INSERT INTO contracts_new SELECT
+        id,
+        CASE WHEN type='employee' THEN 'fulltime' ELSE type END,
+        status, employer_name, employer_address, employer_rep,
+        recipient_name, recipient_email, recipient_address,
+        start_date, end_date, position, work_location, work_hours, salary,
+        project_name, contract_amount, payment_terms, deliverables,
+        template_id, pdf_path, signed_pdf_path, sign_token, sign_expires_at,
+        signer_ip, signature_data, notes, created_at, sent_at, signed_at
+      FROM contracts
+    `);
+    db.exec('DROP TABLE contracts');
+    db.exec('ALTER TABLE contracts_new RENAME TO contracts');
+    console.log('DB migration: contracts.type updated (employee → fulltime)');
+  }
+}
 
 // デフォルト設定（初回のみ挿入）
 const defaultSettings = [
