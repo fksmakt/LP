@@ -1,11 +1,77 @@
-const Database = require('better-sqlite3');
+/**
+ * データベース層
+ * node-sqlite3-wasm を使用（Windows でビルドツール不要・純粋 WASM）
+ * better-sqlite3 互換 API でラップしているため、ルートファイルの変更不要
+ */
+const { Database: WasmDatabase } = require('node-sqlite3-wasm');
 const path = require('path');
 const fs = require('fs');
 
 const dbDir = path.join(__dirname, 'data');
 if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
 
-const db = new Database(path.join(dbDir, 'app.db'));
+// ---- better-sqlite3 互換ラッパー ----
+
+function flatParams(args) {
+  if (args.length === 0) return [];
+  // stmt.all(...array) でスプレッドされた場合も、単一配列渡しも両方対応
+  if (args.length === 1 && Array.isArray(args[0])) return args[0];
+  return args;
+}
+
+class Statement {
+  constructor(wasmStmt) {
+    this._s = wasmStmt;
+  }
+  run(...args) {
+    const result = this._s.run(flatParams(args));
+    this._s.reset();
+    return result;
+  }
+  get(...args) {
+    const row = this._s.get(flatParams(args));
+    this._s.reset();
+    return row ?? undefined; // null → undefined に統一
+  }
+  all(...args) {
+    return this._s.all(flatParams(args));
+  }
+}
+
+class DB {
+  constructor(dbPath) {
+    this._db = new WasmDatabase(dbPath);
+  }
+  pragma(str) {
+    try { this._db.exec(`PRAGMA ${str}`); } catch (_) { /* ignore */ }
+    return this;
+  }
+  exec(sql) {
+    this._db.exec(sql);
+    return this;
+  }
+  prepare(sql) {
+    return new Statement(this._db.prepare(sql));
+  }
+  transaction(fn) {
+    const self = this;
+    return function (...args) {
+      self.exec('BEGIN');
+      try {
+        const result = fn(...args);
+        self.exec('COMMIT');
+        return result;
+      } catch (e) {
+        self.exec('ROLLBACK');
+        throw e;
+      }
+    };
+  }
+}
+
+// ---- DB 初期化 ----
+
+const db = new DB(path.join(dbDir, 'app.db'));
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
@@ -15,46 +81,30 @@ db.exec(`
     type TEXT NOT NULL CHECK(type IN ('employee','contractor')),
     status TEXT NOT NULL DEFAULT 'draft'
       CHECK(status IN ('draft','sent','signed','cancelled')),
-
-    -- 雇用者情報
     employer_name TEXT,
     employer_address TEXT,
     employer_rep TEXT,
-
-    -- 受信者情報
     recipient_name TEXT NOT NULL,
     recipient_email TEXT NOT NULL,
     recipient_address TEXT,
-
-    -- 契約条件
     start_date TEXT,
     end_date TEXT,
     position TEXT,
     work_location TEXT,
     work_hours TEXT,
     salary INTEGER,
-
-    -- 業務委託専用
     project_name TEXT,
     contract_amount INTEGER,
     payment_terms TEXT,
     deliverables TEXT,
-
-    -- テンプレート・ファイル
     template_id TEXT,
     pdf_path TEXT,
     signed_pdf_path TEXT,
-
-    -- 署名
     sign_token TEXT UNIQUE,
     sign_expires_at TEXT,
     signer_ip TEXT,
     signature_data TEXT,
-
-    -- メモ
     notes TEXT,
-
-    -- タイムスタンプ
     created_at TEXT DEFAULT (datetime('now','localtime')),
     sent_at TEXT,
     signed_at TEXT
@@ -65,8 +115,6 @@ db.exec(`
     invoice_number TEXT UNIQUE,
     status TEXT NOT NULL DEFAULT 'draft'
       CHECK(status IN ('draft','sent','paid','cancelled')),
-
-    -- 発行者情報
     issuer_name TEXT,
     issuer_address TEXT,
     issuer_phone TEXT,
@@ -76,31 +124,21 @@ db.exec(`
     issuer_bank_type TEXT,
     issuer_bank_number TEXT,
     issuer_bank_holder TEXT,
-
-    -- クライアント情報
     client_name TEXT NOT NULL,
     client_email TEXT,
     client_address TEXT,
     client_dept TEXT,
     client_contact TEXT,
-
-    -- 請求詳細
     issue_date TEXT,
     due_date TEXT,
     items TEXT DEFAULT '[]',
-
-    -- 金額
     subtotal INTEGER DEFAULT 0,
     discount INTEGER DEFAULT 0,
     tax_rate INTEGER DEFAULT 10,
     tax_amount INTEGER DEFAULT 0,
     total INTEGER DEFAULT 0,
-
-    -- その他
     notes TEXT,
     pdf_path TEXT,
-
-    -- タイムスタンプ
     created_at TEXT DEFAULT (datetime('now','localtime')),
     sent_at TEXT,
     paid_at TEXT
@@ -121,7 +159,7 @@ db.exec(`
   );
 `);
 
-// デフォルト設定
+// デフォルト設定（初回のみ挿入）
 const defaultSettings = [
   ['company_name', '株式会社サンプル'],
   ['company_address', '東京都渋谷区〇〇1-2-3'],
@@ -145,9 +183,7 @@ const defaultSettings = [
   ['bank_holder', ''],
 ];
 
-const insertSetting = db.prepare(
-  'INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)'
-);
+const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
 for (const [key, value] of defaultSettings) insertSetting.run(key, value);
 
 module.exports = db;
