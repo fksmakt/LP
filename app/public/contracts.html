@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>契約書管理 | 契約書・請求書管理</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+  body { font-family: 'Noto Sans JP', sans-serif; }
+  .sidebar-link { display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;border-radius:.75rem;color:#cbd5e1;transition:all .2s; }
+  .sidebar-link:hover { background:rgba(255,255,255,.1);color:#fff; }
+  .sidebar-link.active { background:rgba(255,255,255,.15);color:#fff;font-weight:500; }
+  .modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto; }
+  .modal-box { background:#fff;border-radius:1.25rem;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;margin:auto; }
+  .form-label { display:block;font-size:.875rem;font-weight:500;color:#475569;margin-bottom:.375rem; }
+  .form-input { width:100%;border:1.5px solid #e2e8f0;border-radius:.625rem;padding:.6rem .875rem;font-size:.9rem;outline:none;transition:border-color .15s;font-family:inherit; }
+  .form-input:focus { border-color:#6366f1; }
+  .tab-btn { padding:.5rem 1.25rem;border-radius:.625rem;font-size:.875rem;font-weight:500;cursor:pointer;transition:all .15s; }
+  .tab-btn.active { background:#6366f1;color:#fff; }
+  .tab-btn:not(.active) { color:#64748b; }
+  .tab-btn:not(.active):hover { background:#f1f5f9; }
+  .sign-url-box { font-family:monospace;font-size:.8rem;word-break:break-all;background:#f8fafc;border:1px solid #e2e8f0;border-radius:.5rem;padding:.75rem;color:#3730a3; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+<div class="flex h-screen overflow-hidden">
+
+  <!-- サイドバー -->
+  <aside class="w-64 flex-shrink-0 bg-gradient-to-b from-indigo-900 to-indigo-800 flex flex-col">
+    <div class="p-6 border-b border-white/10">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-file-signature text-white"></i>
+        </div>
+        <div>
+          <div class="text-white font-semibold text-sm">契約・請求</div>
+          <div class="text-indigo-300 text-xs">管理システム</div>
+        </div>
+      </div>
+    </div>
+    <nav class="flex-1 p-4 space-y-1">
+      <a href="/" class="sidebar-link"><i class="fa-solid fa-house w-5 text-center"></i>ダッシュボード</a>
+      <a href="/contracts.html" class="sidebar-link active"><i class="fa-solid fa-file-contract w-5 text-center"></i>契約書管理</a>
+      <a href="/invoices.html" class="sidebar-link"><i class="fa-solid fa-file-invoice-dollar w-5 text-center"></i>請求書管理</a>
+      <div class="pt-3 pb-1"><div class="text-indigo-400 text-xs font-medium px-4 uppercase tracking-wider">設定</div></div>
+      <a href="/settings.html" class="sidebar-link"><i class="fa-solid fa-gear w-5 text-center"></i>設定</a>
+    </nav>
+  </aside>
+
+  <!-- メイン -->
+  <main class="flex-1 overflow-auto flex flex-col">
+    <header class="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+      <h1 class="text-xl font-bold">契約書管理</h1>
+      <button onclick="openCreate()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-medium text-sm flex items-center gap-2 transition-colors">
+        <i class="fa-solid fa-plus"></i> 新規作成
+      </button>
+    </header>
+
+    <div class="p-8 flex-1">
+      <!-- フィルター -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mb-6 flex items-center gap-4 flex-wrap">
+        <div class="flex gap-2" id="type-tabs">
+          <button onclick="setFilter('type','')" class="tab-btn active" data-type="">すべて</button>
+          <button onclick="setFilter('type','fulltime')" class="tab-btn" data-type="fulltime">正社員</button>
+          <button onclick="setFilter('type','parttime')" class="tab-btn" data-type="parttime">パート・アルバイト</button>
+          <button onclick="setFilter('type','contractor')" class="tab-btn" data-type="contractor">業務委託</button>
+        </div>
+        <div class="h-6 w-px bg-slate-200 hidden md:block"></div>
+        <div class="flex gap-2" id="status-tabs">
+          <button onclick="setFilter('status','')" class="tab-btn active" data-status="">すべて</button>
+          <button onclick="setFilter('status','draft')" class="tab-btn" data-status="draft">下書き</button>
+          <button onclick="setFilter('status','sent')" class="tab-btn" data-status="sent">送信済み</button>
+          <button onclick="setFilter('status','signed')" class="tab-btn" data-status="signed">署名済み</button>
+        </div>
+        <div class="ml-auto flex items-center gap-2">
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input id="search-input" type="text" placeholder="名前・メールで検索" class="form-input pl-9 w-56" oninput="debounceLoad()">
+          </div>
+        </div>
+      </div>
+
+      <!-- リスト -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <table class="w-full">
+          <thead>
+            <tr class="border-b border-slate-100">
+              <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">相手方</th>
+              <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">種別</th>
+              <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">開始日</th>
+              <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">ステータス</th>
+              <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">作成日</th>
+              <th class="px-6 py-4"></th>
+            </tr>
+          </thead>
+          <tbody id="contracts-list">
+            <tr><td colspan="6" class="text-center py-12 text-slate-400">読み込み中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- 新規作成モーダル -->
+<div id="modal-create" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="flex items-center justify-between p-6 border-b border-slate-100">
+      <h2 class="text-lg font-semibold">新規契約書作成</h2>
+      <button onclick="closeModal('modal-create')" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="p-6 border-b border-slate-100">
+      <label class="form-label">契約種別</label>
+      <div class="grid grid-cols-3 gap-3">
+        <label class="relative cursor-pointer">
+          <input type="radio" name="contract-type" value="fulltime" class="peer sr-only" checked>
+          <div class="border-2 border-slate-200 peer-checked:border-indigo-500 peer-checked:bg-indigo-50 rounded-xl p-4 transition-all text-center">
+            <i class="fa-solid fa-user-tie text-indigo-500 text-xl mb-2 block"></i>
+            <div class="font-medium text-sm">正社員</div>
+            <div class="text-xs text-slate-400 mt-1">無期・月給制</div>
+          </div>
+        </label>
+        <label class="relative cursor-pointer">
+          <input type="radio" name="contract-type" value="parttime" class="peer sr-only">
+          <div class="border-2 border-slate-200 peer-checked:border-indigo-500 peer-checked:bg-indigo-50 rounded-xl p-4 transition-all text-center">
+            <i class="fa-solid fa-clock text-indigo-500 text-xl mb-2 block"></i>
+            <div class="font-medium text-sm">パート・アルバイト</div>
+            <div class="text-xs text-slate-400 mt-1">時給・シフト制</div>
+          </div>
+        </label>
+        <label class="relative cursor-pointer">
+          <input type="radio" name="contract-type" value="contractor" class="peer sr-only">
+          <div class="border-2 border-slate-200 peer-checked:border-indigo-500 peer-checked:bg-indigo-50 rounded-xl p-4 transition-all text-center">
+            <i class="fa-solid fa-handshake text-indigo-500 text-xl mb-2 block"></i>
+            <div class="font-medium text-sm">業務委託</div>
+            <div class="text-xs text-slate-400 mt-1">フリーランス</div>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <form id="create-form" class="p-6 space-y-4">
+      <div class="bg-slate-50 rounded-xl p-4 space-y-3">
+        <div class="text-sm font-semibold text-slate-600 mb-2"><i class="fa-solid fa-user text-indigo-500 mr-2"></i>相手方情報</div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="form-label">氏名 <span class="text-red-500">*</span></label>
+            <input name="recipient_name" type="text" class="form-input" placeholder="山田 花子" required>
+          </div>
+          <div>
+            <label class="form-label">メールアドレス <span class="text-red-500">*</span></label>
+            <input name="recipient_email" type="email" class="form-input" placeholder="hanako@example.com" required>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">住所</label>
+          <input name="recipient_address" type="text" class="form-input" placeholder="東京都渋谷区〇〇1-2-3">
+        </div>
+      </div>
+
+      <div class="bg-slate-50 rounded-xl p-4 space-y-3">
+        <div class="text-sm font-semibold text-slate-600 mb-2"><i class="fa-solid fa-calendar text-indigo-500 mr-2"></i>契約期間</div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="form-label">開始日 <span class="text-red-500">*</span></label>
+            <input name="start_date" type="date" class="form-input" id="form-start-date" required>
+          </div>
+          <div>
+            <label class="form-label">終了日（空欄=無期限）</label>
+            <input name="end_date" type="date" class="form-input" id="form-end-date">
+          </div>
+        </div>
+      </div>
+
+      <!-- 正社員フィールド -->
+      <div id="fulltime-fields" class="bg-slate-50 rounded-xl p-4 space-y-3">
+        <div class="text-sm font-semibold text-slate-600 mb-2"><i class="fa-solid fa-briefcase text-indigo-500 mr-2"></i>雇用条件（正社員）</div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="form-label">職種・役職</label>
+            <input name="position" type="text" class="form-input" placeholder="ホールスタッフ・調理師など">
+          </div>
+          <div>
+            <label class="form-label">月額基本給（円）</label>
+            <input name="salary" type="number" class="form-input" placeholder="220000" min="0">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="form-label">就業場所</label>
+            <input name="work_location" type="text" class="form-input" placeholder="○○店">
+          </div>
+          <div>
+            <label class="form-label">労働時間</label>
+            <input name="work_hours" type="text" class="form-input" placeholder="10:00〜19:00（休憩1時間）">
+          </div>
+        </div>
+      </div>
+
+      <!-- パート・アルバイトフィールド -->
+      <div id="parttime-fields" class="bg-slate-50 rounded-xl p-4 space-y-3 hidden">
+        <div class="text-sm font-semibold text-slate-600 mb-2"><i class="fa-solid fa-clock text-indigo-500 mr-2"></i>雇用条件（パート・アルバイト）</div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="form-label">業務内容・職種</label>
+            <input name="position" type="text" class="form-input" placeholder="ホールスタッフ・キッチンなど">
+          </div>
+          <div>
+            <label class="form-label">時給（円）</label>
+            <input name="salary" type="number" class="form-input" placeholder="1100" min="0">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="form-label">就業場所</label>
+            <input name="work_location" type="text" class="form-input" placeholder="○○店">
+          </div>
+          <div>
+            <label class="form-label">勤務時間帯・シフト</label>
+            <input name="work_hours" type="text" class="form-input" placeholder="シフト表による（週3〜5日）">
+          </div>
+        </div>
+      </div>
+
+      <div id="contractor-fields" class="bg-slate-50 rounded-xl p-4 space-y-3 hidden">
+        <div class="text-sm font-semibold text-slate-600 mb-2"><i class="fa-solid fa-handshake text-indigo-500 mr-2"></i>委託条件</div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="form-label">業務名・プロジェクト名</label>
+            <input name="project_name" type="text" class="form-input" placeholder="Webサイトリニューアル">
+          </div>
+          <div>
+            <label class="form-label">委託報酬（円）</label>
+            <input name="contract_amount" type="number" class="form-input" placeholder="500000" min="0">
+          </div>
+        </div>
+        <div>
+          <label class="form-label">成果物</label>
+          <input name="deliverables" type="text" class="form-input" placeholder="Webサイト一式、デザインデータ">
+        </div>
+        <div>
+          <label class="form-label">支払条件</label>
+          <input name="payment_terms" type="text" class="form-input" placeholder="業務完了後30日以内">
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">PDFテンプレート（任意）</label>
+        <select name="template_id" id="template-select" class="form-input">
+          <option value="">自動生成（テンプレートなし）</option>
+        </select>
+        <p class="text-xs text-slate-400 mt-1">テンプレートがない場合は自動でPDFを生成します。<a href="/settings.html" class="text-indigo-500 hover:underline">テンプレートをアップロード →</a></p>
+      </div>
+
+      <div>
+        <label class="form-label">備考</label>
+        <textarea name="notes" class="form-input" rows="2" placeholder="特記事項があれば記載"></textarea>
+      </div>
+
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="closeModal('modal-create')" class="flex-1 py-3 border border-slate-200 rounded-xl font-medium text-slate-600 hover:bg-slate-50 transition-colors">キャンセル</button>
+        <button type="submit" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors">
+          <i class="fa-solid fa-plus mr-2"></i>作成する
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 詳細モーダル -->
+<div id="modal-detail" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="flex items-center justify-between p-6 border-b border-slate-100">
+      <h2 class="text-lg font-semibold" id="detail-title">契約書詳細</h2>
+      <button onclick="closeModal('modal-detail')" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div id="detail-content" class="p-6"></div>
+  </div>
+</div>
+
+<!-- 署名URLモーダル -->
+<div id="modal-signurl" class="modal-overlay hidden">
+  <div class="modal-box" style="max-width:480px;">
+    <div class="flex items-center justify-between p-6 border-b border-slate-100">
+      <h2 class="text-lg font-semibold">署名依頼を送信しました</h2>
+      <button onclick="closeModal('modal-signurl')" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="p-6">
+      <div class="flex items-center gap-3 bg-green-50 border border-green-100 rounded-xl p-4 mb-5">
+        <i class="fa-solid fa-circle-check text-green-500 text-xl"></i>
+        <div>
+          <div class="font-medium text-green-800">メールを送信しました</div>
+          <div class="text-sm text-green-600 mt-0.5">相手方に署名依頼メールが届きます。</div>
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <div class="text-sm font-medium text-slate-600 mb-2">署名用URL（SMTPが未設定の場合はこちらを共有）</div>
+        <div class="sign-url-box" id="signurl-display"></div>
+      </div>
+
+      <div class="flex gap-2">
+        <button onclick="copySignUrl()" id="copy-btn"
+          class="flex-1 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-colors">
+          <i class="fa-solid fa-copy"></i> URLをコピー
+        </button>
+        <button onclick="closeModal('modal-signurl')"
+          class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium text-sm transition-colors">
+          閉じる
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- トースト -->
+<div id="toast" class="fixed bottom-6 right-6 z-50 hidden">
+  <div id="toast-inner" class="flex items-center gap-3 bg-white border border-slate-200 shadow-xl rounded-xl px-5 py-3.5 text-sm font-medium max-w-xs"></div>
+</div>
+
+<script>
+let filters = { type: '', status: '' };
+let debounceTimer;
+let currentSignUrl = '';
+
+const statusLabels = {
+  draft: { label: '下書き', cls: 'bg-slate-100 text-slate-600' },
+  sent: { label: '送信済み', cls: 'bg-amber-100 text-amber-700' },
+  signed: { label: '署名済み', cls: 'bg-green-100 text-green-700' },
+  cancelled: { label: 'キャンセル', cls: 'bg-red-100 text-red-600' },
+};
+
+const typeLabels = {
+  fulltime:   { label: '正社員',         cls: 'bg-indigo-50 text-indigo-700' },
+  parttime:   { label: 'パート・アルバイト', cls: 'bg-purple-50 text-purple-700' },
+  contractor: { label: '業務委託',        cls: 'bg-sky-50 text-sky-700' },
+};
+
+function typeLabel(type) {
+  const t = typeLabels[type] || { label: type, cls: 'bg-slate-100 text-slate-600' };
+  return `<span class="text-xs px-2.5 py-1 rounded-full font-medium ${t.cls}">${t.label}</span>`;
+}
+
+function badge(status) {
+  const s = statusLabels[status] || { label: status, cls: 'bg-slate-100 text-slate-600' };
+  return `<span class="text-xs px-2.5 py-1 rounded-full font-medium ${s.cls}">${s.label}</span>`;
+}
+
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  const inner = document.getElementById('toast-inner');
+  const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
+  const color = type === 'success' ? 'text-green-600' : type === 'error' ? 'text-red-600' : 'text-blue-600';
+  inner.innerHTML = `<span class="${color} font-bold">${icon}</span><span class="ml-1">${msg}</span>`;
+  el.classList.remove('hidden');
+  setTimeout(() => el.classList.add('hidden'), 4000);
+}
+
+function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+function setFilter(key, value) {
+  filters[key] = value;
+  const group = key === 'type' ? 'type-tabs' : 'status-tabs';
+  document.querySelectorAll(`#${group} .tab-btn`).forEach(b => {
+    b.classList.toggle('active', b.dataset[key] === value);
+  });
+  loadContracts();
+}
+
+function debounceLoad() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(loadContracts, 300);
+}
+
+async function loadContracts() {
+  const q = document.getElementById('search-input').value;
+  const params = new URLSearchParams({ ...filters, q });
+  const data = await fetch(`/api/contracts?${params}`).then(r => r.json());
+  const tbody = document.getElementById('contracts-list');
+
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-12 text-slate-400 text-sm">契約書がありません</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(c => `
+    <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer" onclick="viewDetail('${c.id}')">
+      <td class="px-6 py-4">
+        <div class="font-medium">${esc(c.recipient_name)}</div>
+        <div class="text-xs text-slate-400">${esc(c.recipient_email)}</div>
+      </td>
+      <td class="px-6 py-4">${typeLabel(c.type)}</td>
+      <td class="px-6 py-4 text-sm text-slate-600">${c.start_date || '—'}</td>
+      <td class="px-6 py-4">${badge(c.status)}</td>
+      <td class="px-6 py-4 text-xs text-slate-400">${(c.created_at || '').split(' ')[0]}</td>
+      <td class="px-6 py-4" onclick="event.stopPropagation()">
+        <div class="flex items-center gap-1 justify-end">
+          <a href="/api/contracts/${c.id}/pdf" target="_blank"
+             onclick="event.stopPropagation()"
+             class="text-slate-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors" title="PDF">
+            <i class="fa-solid fa-file-pdf text-sm"></i>
+          </a>
+          ${c.status !== 'signed' && c.status !== 'cancelled' ? `
+          <button onclick="sendForSign('${c.id}', '${esc(c.recipient_name)}')"
+            class="text-slate-400 hover:text-amber-600 p-1.5 rounded-lg hover:bg-amber-50 transition-colors" title="署名依頼を送信">
+            <i class="fa-solid fa-paper-plane text-sm"></i>
+          </button>` : ''}
+          ${c.status === 'signed' ? `
+          <a href="/api/contracts/${c.id}/signed-pdf" target="_blank"
+             onclick="event.stopPropagation()"
+             class="text-slate-400 hover:text-green-600 p-1.5 rounded-lg hover:bg-green-50 transition-colors" title="署名済みPDF">
+            <i class="fa-solid fa-circle-check text-sm"></i>
+          </a>` : ''}
+          <button onclick="deleteContract('${c.id}', '${esc(c.recipient_name)}')"
+            class="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="削除">
+            <i class="fa-solid fa-trash text-sm"></i>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function loadTemplates() {
+  try {
+    const templates = await fetch('/api/settings/templates').then(r => r.json());
+    const sel = document.getElementById('template-select');
+    // 既存オプションを保持（デフォルトのみ残す）
+    while (sel.options.length > 1) sel.remove(1);
+    templates.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      const typeStr = t.type === 'fulltime_contract' ? '正社員' : t.type === 'parttime_contract' ? 'パート' : t.type === 'employee_contract' ? '雇用' : '業務委託';
+      opt.textContent = `${t.name} (${typeStr})`;
+      sel.appendChild(opt);
+    });
+  } catch (e) { /* ignore */ }
+}
+
+// 契約種別切り替え
+function switchTypeFields(type) {
+  document.getElementById('fulltime-fields').classList.toggle('hidden', type !== 'fulltime');
+  document.getElementById('parttime-fields').classList.toggle('hidden', type !== 'parttime');
+  document.getElementById('contractor-fields').classList.toggle('hidden', type !== 'contractor');
+}
+
+document.querySelectorAll('[name="contract-type"]').forEach(r => {
+  r.addEventListener('change', () => switchTypeFields(r.value));
+});
+
+function openCreate() {
+  const form = document.getElementById('create-form');
+  form.reset();
+  document.querySelector('[name="contract-type"][value="fulltime"]').checked = true;
+  switchTypeFields('fulltime');
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('form-start-date').value = today;
+  openModal('modal-create');
+  loadTemplates();
+}
+
+document.getElementById('create-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const type = document.querySelector('[name="contract-type"]:checked').value;
+  const data = Object.fromEntries(fd.entries());
+  data.type = type;
+
+  // 終了日の検証
+  if (data.end_date && data.start_date && data.end_date < data.start_date) {
+    toast('終了日は開始日より後に設定してください', 'error');
+    return;
+  }
+
+  const btn = e.target.querySelector('[type="submit"]');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i>作成中...';
+
+  try {
+    const res = await fetch('/api/contracts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error);
+    closeModal('modal-create');
+    toast('契約書を作成しました');
+    loadContracts();
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-plus mr-2"></i>作成する';
+  }
+});
+
+async function sendForSign(id, name) {
+  if (!confirm(`${name}様に署名依頼メールを送信しますか？\n（SMTP設定がない場合は署名URLを表示します）`)) return;
+  try {
+    const res = await fetch(`/api/contracts/${id}/send`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    if (data.signUrl) {
+      currentSignUrl = data.signUrl;
+      document.getElementById('signurl-display').textContent = data.signUrl;
+      openModal('modal-signurl');
+    } else {
+      toast('署名依頼メールを送信しました');
+    }
+    loadContracts();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+function copySignUrl() {
+  if (!currentSignUrl) return;
+  navigator.clipboard.writeText(currentSignUrl).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.innerHTML = '<i class="fa-solid fa-check text-green-600"></i> コピーしました';
+    setTimeout(() => {
+      btn.innerHTML = '<i class="fa-solid fa-copy"></i> URLをコピー';
+    }, 2000);
+  }).catch(() => {
+    // フォールバック
+    const el = document.createElement('textarea');
+    el.value = currentSignUrl;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    toast('URLをコピーしました');
+  });
+}
+
+async function viewDetail(id) {
+  const c = await fetch(`/api/contracts/${id}`).then(r => r.json());
+  const content = document.getElementById('detail-content');
+  const titleMap = { fulltime: '正社員労働契約書', parttime: 'パートタイム・アルバイト労働契約書', contractor: '業務委託契約書' };
+  document.getElementById('detail-title').textContent = `${c.recipient_name} — ${titleMap[c.type] || '契約書'}`;
+
+  const fmt = v => v || '—';
+  const fmtMoney = n => n ? '¥' + Number(n).toLocaleString('ja-JP') : '—';
+
+  const isEmployee = c.type === 'fulltime' || c.type === 'parttime';
+  const rows = [
+    ['ステータス', badge(c.status)],
+    ['種別', typeLabel(c.type)],
+    ['氏名', fmt(c.recipient_name)],
+    ['メール', fmt(c.recipient_email)],
+    ['住所', fmt(c.recipient_address)],
+    ['開始日', fmt(c.start_date)],
+    ['終了日', c.end_date || '無期限'],
+    isEmployee
+      ? ['職種・業務内容', fmt(c.position)]
+      : ['業務名', fmt(c.project_name)],
+    c.type === 'parttime'
+      ? ['時給', fmtMoney(c.salary)]
+      : c.type === 'fulltime'
+        ? ['月額基本給', fmtMoney(c.salary)]
+        : ['委託報酬', fmtMoney(c.contract_amount)],
+    isEmployee
+      ? ['就業場所', fmt(c.work_location)]
+      : ['成果物', fmt(c.deliverables)],
+    isEmployee
+      ? ['勤務時間', fmt(c.work_hours)]
+      : ['支払条件', fmt(c.payment_terms)],
+    ['備考', fmt(c.notes)],
+    ['作成日', fmt(c.created_at)],
+    ['送信日', fmt(c.sent_at)],
+    ['署名日', fmt(c.signed_at)],
+  ];
+
+  content.innerHTML = `
+    <dl class="space-y-1 mb-6">
+      ${rows.map(([k, v]) => `
+        <div class="flex gap-4 py-2 border-b border-slate-50 last:border-0">
+          <dt class="w-28 flex-shrink-0 text-sm text-slate-500 font-medium">${k}</dt>
+          <dd class="text-sm text-slate-800">${v}</dd>
+        </div>
+      `).join('')}
+    </dl>
+    <div class="flex flex-wrap gap-3">
+      <a href="/api/contracts/${id}/pdf" target="_blank"
+         class="flex-1 min-w-0 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium text-sm text-center flex items-center justify-center gap-2">
+        <i class="fa-solid fa-file-pdf"></i> PDFを表示
+      </a>
+      ${c.status !== 'signed' && c.status !== 'cancelled' ? `
+      <button onclick="sendForSign('${id}', '${esc(c.recipient_name)}'); closeModal('modal-detail');"
+         class="flex-1 min-w-0 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2">
+        <i class="fa-solid fa-paper-plane"></i> 署名依頼送信
+      </button>` : ''}
+      ${c.status === 'signed' ? `
+      <a href="/api/contracts/${id}/signed-pdf" target="_blank"
+         class="flex-1 min-w-0 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium text-sm text-center flex items-center justify-center gap-2">
+        <i class="fa-solid fa-circle-check"></i> 署名済みPDF
+      </a>` : ''}
+      <button onclick="deleteContract('${id}', '${esc(c.recipient_name)}'); closeModal('modal-detail');"
+         class="py-3 px-4 border border-red-200 hover:bg-red-50 text-red-500 rounded-xl font-medium text-sm flex items-center justify-center gap-2">
+        <i class="fa-solid fa-trash"></i>
+      </button>
+    </div>
+  `;
+  openModal('modal-detail');
+}
+
+async function deleteContract(id, name) {
+  if (!confirm(`「${name}」の契約書を削除しますか？\nこの操作は元に戻せません。`)) return;
+  const res = await fetch(`/api/contracts/${id}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (!res.ok) { toast(data.error, 'error'); return; }
+  toast('削除しました');
+  loadContracts();
+}
+
+// URLパラメータ処理
+const urlParams = new URLSearchParams(location.search);
+if (urlParams.get('action') === 'new') openCreate();
+if (urlParams.get('id')) viewDetail(urlParams.get('id'));
+
+loadContracts();
+</script>
+</body>
+</html>

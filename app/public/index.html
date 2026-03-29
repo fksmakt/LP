@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ダッシュボード | 契約書・請求書管理</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { font-family: 'Noto Sans JP', sans-serif; }
+  .sidebar-link { @apply flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-200; }
+  .sidebar-link.active { @apply bg-white/15 text-white font-medium; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+<div class="flex h-screen overflow-hidden">
+
+  <!-- サイドバー -->
+  <aside class="w-64 flex-shrink-0 bg-gradient-to-b from-indigo-900 to-indigo-800 flex flex-col">
+    <div class="p-6 border-b border-white/10">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-file-signature text-white"></i>
+        </div>
+        <div>
+          <div class="text-white font-semibold text-sm leading-tight">契約・請求</div>
+          <div class="text-indigo-300 text-xs">管理システム</div>
+        </div>
+      </div>
+    </div>
+    <nav class="flex-1 p-4 space-y-1">
+      <a href="/" class="sidebar-link active">
+        <i class="fa-solid fa-house w-5 text-center"></i>ダッシュボード
+      </a>
+      <a href="/contracts.html" class="sidebar-link">
+        <i class="fa-solid fa-file-contract w-5 text-center"></i>契約書管理
+      </a>
+      <a href="/invoices.html" class="sidebar-link">
+        <i class="fa-solid fa-file-invoice-dollar w-5 text-center"></i>請求書管理
+      </a>
+      <div class="pt-3 pb-1">
+        <div class="text-indigo-400 text-xs font-medium px-4 uppercase tracking-wider">設定</div>
+      </div>
+      <a href="/settings.html" class="sidebar-link">
+        <i class="fa-solid fa-gear w-5 text-center"></i>設定
+      </a>
+    </nav>
+    <div class="p-4 border-t border-white/10">
+      <div class="text-indigo-400 text-xs text-center">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- メインコンテンツ -->
+  <main class="flex-1 overflow-auto">
+    <header class="bg-white border-b border-slate-200 px-8 py-4 sticky top-0 z-10">
+      <h1 class="text-xl font-bold text-slate-800">ダッシュボード</h1>
+    </header>
+
+    <div class="p-8">
+      <!-- KPIカード -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+          <div class="flex items-center justify-between mb-4">
+            <div class="text-sm text-slate-500">総契約書数</div>
+            <div class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
+              <i class="fa-solid fa-file-contract text-indigo-600"></i>
+            </div>
+          </div>
+          <div class="text-3xl font-bold text-slate-800" id="kpi-contracts">—</div>
+          <div class="flex gap-3 mt-2 text-xs">
+            <span class="text-amber-600" id="kpi-contracts-sent"></span>
+            <span class="text-green-600" id="kpi-contracts-signed"></span>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+          <div class="flex items-center justify-between mb-4">
+            <div class="text-sm text-slate-500">総請求書数</div>
+            <div class="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center">
+              <i class="fa-solid fa-file-invoice text-violet-600"></i>
+            </div>
+          </div>
+          <div class="text-3xl font-bold text-slate-800" id="kpi-invoices">—</div>
+          <div class="flex gap-3 mt-2 text-xs">
+            <span class="text-amber-600" id="kpi-invoices-sent"></span>
+            <span class="text-green-600" id="kpi-invoices-paid"></span>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+          <div class="flex items-center justify-between mb-4">
+            <div class="text-sm text-slate-500">総請求金額</div>
+            <div class="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
+              <i class="fa-solid fa-yen-sign text-green-600"></i>
+            </div>
+          </div>
+          <div class="text-2xl font-bold text-slate-800" id="kpi-total-amount">—</div>
+          <div class="text-xs text-slate-400 mt-2">累計請求額</div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+          <div class="flex items-center justify-between mb-4">
+            <div class="text-sm text-slate-500">未入金金額</div>
+            <div class="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
+              <i class="fa-solid fa-clock text-red-500"></i>
+            </div>
+          </div>
+          <div class="text-2xl font-bold text-red-500" id="kpi-unpaid-amount">—</div>
+          <div class="text-xs text-slate-400 mt-2">送付済み・未入金</div>
+        </div>
+      </div>
+
+      <!-- クイックアクション -->
+      <div class="grid grid-cols-2 gap-4 mb-8">
+        <a href="/contracts.html?action=new"
+           class="flex items-center gap-4 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-2xl p-5 hover:from-indigo-700 hover:to-indigo-600 transition-all shadow-md hover:shadow-lg">
+          <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+            <i class="fa-solid fa-plus text-xl"></i>
+          </div>
+          <div>
+            <div class="font-semibold">新規契約書を作成</div>
+            <div class="text-indigo-200 text-sm">雇用・業務委託契約</div>
+          </div>
+          <i class="fa-solid fa-arrow-right ml-auto"></i>
+        </a>
+        <a href="/invoices.html?action=new"
+           class="flex items-center gap-4 bg-gradient-to-r from-violet-600 to-violet-500 text-white rounded-2xl p-5 hover:from-violet-700 hover:to-violet-600 transition-all shadow-md hover:shadow-lg">
+          <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+            <i class="fa-solid fa-file-invoice-dollar text-xl"></i>
+          </div>
+          <div>
+            <div class="font-semibold">新規請求書を作成</div>
+            <div class="text-violet-200 text-sm">PDF生成・メール送信</div>
+          </div>
+          <i class="fa-solid fa-arrow-right ml-auto"></i>
+        </a>
+      </div>
+
+      <!-- 最近のアクティビティ -->
+      <div class="grid grid-cols-2 gap-6">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100">
+          <div class="flex items-center justify-between p-6 border-b border-slate-100">
+            <h2 class="font-semibold text-slate-700">最近の契約書</h2>
+            <a href="/contracts.html" class="text-indigo-600 text-sm hover:underline">すべて見る</a>
+          </div>
+          <div id="recent-contracts" class="divide-y divide-slate-50">
+            <div class="p-6 text-center text-slate-400 text-sm">読み込み中...</div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100">
+          <div class="flex items-center justify-between p-6 border-b border-slate-100">
+            <h2 class="font-semibold text-slate-700">最近の請求書</h2>
+            <a href="/invoices.html" class="text-violet-600 text-sm hover:underline">すべて見る</a>
+          </div>
+          <div id="recent-invoices" class="divide-y divide-slate-50">
+            <div class="p-6 text-center text-slate-400 text-sm">読み込み中...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const statusLabels = {
+  draft: { label: '下書き', cls: 'bg-slate-100 text-slate-600' },
+  sent: { label: '送信済み', cls: 'bg-amber-100 text-amber-700' },
+  signed: { label: '署名済み', cls: 'bg-green-100 text-green-700' },
+  paid: { label: '入金済み', cls: 'bg-green-100 text-green-700' },
+  cancelled: { label: 'キャンセル', cls: 'bg-red-100 text-red-600' },
+};
+
+function badge(status) {
+  const s = statusLabels[status] || { label: status, cls: 'bg-slate-100 text-slate-600' };
+  return `<span class="text-xs px-2 py-0.5 rounded-full font-medium ${s.cls}">${s.label}</span>`;
+}
+
+function formatMoney(n) {
+  return '¥' + Number(n || 0).toLocaleString('ja-JP');
+}
+
+async function loadDashboard() {
+  const data = await fetch('/api/dashboard').then(r => r.json());
+  const { contracts, invoices, recentContracts, recentInvoices } = data;
+
+  document.getElementById('kpi-contracts').textContent = contracts.total;
+  document.getElementById('kpi-contracts-sent').textContent = `送信済み ${contracts.sent}件`;
+  document.getElementById('kpi-contracts-signed').textContent = `署名済み ${contracts.signed}件`;
+
+  document.getElementById('kpi-invoices').textContent = invoices.total;
+  document.getElementById('kpi-invoices-sent').textContent = `未入金 ${invoices.sent}件`;
+  document.getElementById('kpi-invoices-paid').textContent = `入金済み ${invoices.paid}件`;
+
+  document.getElementById('kpi-total-amount').textContent = formatMoney(invoices.totalAmount);
+  document.getElementById('kpi-unpaid-amount').textContent = formatMoney(invoices.unpaidAmount);
+
+  // 最近の契約書
+  const rcEl = document.getElementById('recent-contracts');
+  if (recentContracts.length === 0) {
+    rcEl.innerHTML = '<div class="p-6 text-center text-slate-400 text-sm">契約書がありません</div>';
+  } else {
+    rcEl.innerHTML = recentContracts.map(c => `
+      <a href="/contracts.html?id=${c.id}" class="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors">
+        <div class="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+          <i class="fa-solid fa-file-contract text-indigo-500 text-xs"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="font-medium text-sm truncate">${c.recipient_name}</div>
+          <div class="text-xs text-slate-400">${c.type === 'employee' ? '雇用契約' : '業務委託'}</div>
+        </div>
+        ${badge(c.status)}
+      </a>
+    `).join('');
+  }
+
+  // 最近の請求書
+  const riEl = document.getElementById('recent-invoices');
+  if (recentInvoices.length === 0) {
+    riEl.innerHTML = '<div class="p-6 text-center text-slate-400 text-sm">請求書がありません</div>';
+  } else {
+    riEl.innerHTML = recentInvoices.map(i => `
+      <a href="/invoices.html?id=${i.id}" class="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors">
+        <div class="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
+          <i class="fa-solid fa-file-invoice text-violet-500 text-xs"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="font-medium text-sm truncate">${i.client_name}</div>
+          <div class="text-xs text-slate-400">${i.invoice_number}</div>
+        </div>
+        <div class="text-sm font-medium text-slate-700">${formatMoney(i.total)}</div>
+      </a>
+    `).join('');
+  }
+}
+
+loadDashboard();
+</script>
+</body>
+</html>

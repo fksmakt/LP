@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>電子署名 | 契約書確認</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+  body { font-family: 'Noto Sans JP', sans-serif; }
+  #signature-canvas { cursor: crosshair; touch-action: none; }
+</style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+
+  <!-- ヘッダー -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-10">
+    <div class="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
+      <div class="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center">
+        <i class="fa-solid fa-file-signature text-white text-sm"></i>
+      </div>
+      <div>
+        <div class="font-semibold text-slate-800 text-sm">電子署名</div>
+        <div class="text-xs text-slate-400">契約書確認・署名システム</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ローディング -->
+  <div id="loading-screen" class="max-w-4xl mx-auto px-4 py-16 text-center">
+    <div class="inline-flex items-center gap-3 text-slate-400">
+      <i class="fa-solid fa-circle-notch fa-spin text-2xl text-indigo-500"></i>
+      <span>書類を読み込んでいます...</span>
+    </div>
+  </div>
+
+  <!-- エラー画面 -->
+  <div id="error-screen" class="max-w-4xl mx-auto px-4 py-16 text-center hidden">
+    <div class="bg-white rounded-2xl p-12 shadow-sm border border-slate-100 max-w-md mx-auto">
+      <div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i class="fa-solid fa-triangle-exclamation text-red-500 text-2xl"></i>
+      </div>
+      <h1 class="text-xl font-bold text-slate-800 mb-2" id="error-title">エラー</h1>
+      <p class="text-slate-500" id="error-message"></p>
+    </div>
+  </div>
+
+  <!-- 完了画面 -->
+  <div id="success-screen" class="max-w-4xl mx-auto px-4 py-16 text-center hidden">
+    <div class="bg-white rounded-2xl p-12 shadow-sm border border-slate-100 max-w-md mx-auto">
+      <div class="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
+        <i class="fa-solid fa-circle-check text-green-500 text-4xl"></i>
+      </div>
+      <h1 class="text-2xl font-bold text-slate-800 mb-3">署名が完了しました</h1>
+      <p class="text-slate-500 mb-6">書類への電子署名が正常に完了しました。<br>署名済みの書類をメールでお送りします。</p>
+      <div class="bg-green-50 border border-green-100 rounded-xl p-4 text-left">
+        <div class="flex items-start gap-3">
+          <i class="fa-solid fa-shield-check text-green-600 mt-0.5"></i>
+          <div class="text-sm text-green-800">
+            <div class="font-medium">署名が記録されました</div>
+            <div class="text-green-600 mt-0.5">タイムスタンプ・IPアドレスが法的証拠として保存されています。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- メインコンテンツ -->
+  <div id="main-screen" class="max-w-4xl mx-auto px-4 py-8 hidden">
+    <!-- 書類情報カード -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6">
+      <div class="flex items-start gap-4">
+        <div class="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+          <i class="fa-solid fa-file-contract text-indigo-600 text-2xl"></i>
+        </div>
+        <div class="flex-1">
+          <div class="text-xs text-indigo-500 font-semibold uppercase tracking-wider mb-1">署名依頼書類</div>
+          <h1 class="text-xl font-bold text-slate-800" id="contract-title">契約書</h1>
+          <div class="text-slate-500 text-sm mt-1">
+            <span id="employer-name"></span>より電子署名をお願いしております。
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-xs text-slate-400 mb-1">宛先</div>
+          <div class="font-semibold text-slate-700" id="recipient-name"></div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-5 border-t border-slate-100">
+        <div>
+          <div class="text-xs text-slate-400 mb-1">開始日</div>
+          <div class="text-sm font-medium" id="info-start-date">—</div>
+        </div>
+        <div>
+          <div class="text-xs text-slate-400 mb-1">終了日</div>
+          <div class="text-sm font-medium" id="info-end-date">—</div>
+        </div>
+        <div id="info-position-wrap">
+          <div class="text-xs text-slate-400 mb-1">職種</div>
+          <div class="text-sm font-medium" id="info-position">—</div>
+        </div>
+        <div id="info-amount-wrap">
+          <div class="text-xs text-slate-400 mb-1" id="info-amount-label">月額給与</div>
+          <div class="text-sm font-medium text-indigo-600" id="info-amount">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PDF プレビュー -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 mb-6 overflow-hidden">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+        <h2 class="font-semibold text-slate-700">
+          <i class="fa-solid fa-file-pdf text-indigo-500 mr-2"></i>契約書の内容を確認してください
+        </h2>
+        <a id="pdf-download-link" href="#" download class="text-sm text-indigo-600 hover:underline flex items-center gap-1">
+          <i class="fa-solid fa-download"></i> ダウンロード
+        </a>
+      </div>
+      <div class="bg-slate-100 p-4">
+        <embed id="pdf-embed" src="" type="application/pdf" class="w-full rounded-xl" style="height:500px;">
+        <div id="pdf-fallback" class="hidden text-center py-8 text-slate-500">
+          <p class="mb-3">PDFをブラウザで表示できない場合は下記よりダウンロードしてください。</p>
+          <a id="pdf-fallback-link" href="#" class="text-indigo-600 hover:underline">PDFをダウンロード</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 署名エリア -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6">
+      <h2 class="font-semibold text-slate-700 mb-4">
+        <i class="fa-solid fa-pen-nib text-indigo-500 mr-2"></i>電子署名
+      </h2>
+      <p class="text-sm text-slate-500 mb-4">下の枠内にマウスまたは指で署名を書いてください。</p>
+
+      <div class="border-2 border-dashed border-slate-300 rounded-xl p-2 bg-slate-50 mb-3">
+        <canvas id="signature-canvas" class="w-full rounded-lg bg-white" height="160"></canvas>
+      </div>
+
+      <div class="flex gap-2 mb-5">
+        <button onclick="clearSignature()" class="text-sm text-slate-500 hover:text-slate-700 px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+          <i class="fa-solid fa-rotate-left mr-1"></i> やり直す
+        </button>
+        <button onclick="undoSignature()" class="text-sm text-slate-500 hover:text-slate-700 px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+          <i class="fa-solid fa-undo mr-1"></i> 一歩戻る
+        </button>
+        <div class="flex-1"></div>
+        <div class="flex items-center gap-2 text-sm text-slate-500">
+          <span>太さ:</span>
+          <input type="range" id="pen-size" min="1" max="8" value="3" class="w-20">
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-slate-500">色:</span>
+          <input type="color" id="pen-color" value="#1e1b4b" class="w-8 h-8 rounded cursor-pointer">
+        </div>
+      </div>
+
+      <!-- 同意チェック -->
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
+        <label class="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" id="agree-checkbox" class="mt-0.5 w-5 h-5 accent-indigo-600">
+          <div class="text-sm text-amber-800">
+            <div class="font-medium">内容の確認と同意</div>
+            <div class="mt-1 text-amber-700">
+              上記の契約書の内容を確認し、記載された条件に同意します。この電子署名は手書き署名と同等の法的効力を持つことを理解しています。
+            </div>
+          </div>
+        </label>
+      </div>
+
+      <button id="submit-btn" onclick="submitSignature()" disabled
+        class="w-full py-4 bg-indigo-600 text-white rounded-xl font-semibold text-base transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-700 flex items-center justify-center gap-3">
+        <i class="fa-solid fa-signature"></i>
+        署名して契約を締結する
+      </button>
+      <p class="text-center text-xs text-slate-400 mt-3">
+        <i class="fa-solid fa-lock mr-1"></i>
+        署名内容はSSL暗号化されて安全に送信されます
+      </p>
+    </div>
+  </div>
+
+<script>
+const token = location.pathname.split('/').pop();
+let contractData = null;
+let signaturePaths = [];
+let drawing = false;
+let lastX = 0, lastY = 0;
+
+// 画面制御
+function showScreen(id) {
+  ['loading-screen','error-screen','success-screen','main-screen'].forEach(s => {
+    document.getElementById(s).classList.add('hidden');
+  });
+  document.getElementById(id).classList.remove('hidden');
+}
+
+async function init() {
+  try {
+    const res = await fetch(`/sign/api/${token}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    contractData = data;
+    renderInfo(data);
+    loadPDF();
+    initCanvas();
+    showScreen('main-screen');
+  } catch (err) {
+    document.getElementById('error-title').textContent =
+      err.message.includes('期限') ? 'リンクの有効期限切れ' :
+      err.message.includes('済み') ? '署名済みの書類' : 'エラーが発生しました';
+    document.getElementById('error-message').textContent = err.message;
+    showScreen('error-screen');
+  }
+}
+
+function renderInfo(data) {
+  const typeLabel = data.type === 'employee' ? '労働契約書' : '業務委託契約書';
+  document.getElementById('contract-title').textContent = typeLabel;
+  document.getElementById('employer-name').textContent = data.employer_name || '';
+  document.getElementById('recipient-name').textContent = data.recipient_name || '';
+  document.getElementById('info-start-date').textContent = data.start_date || '—';
+  document.getElementById('info-end-date').textContent = data.end_date || '無期';
+
+  if (data.type === 'employee') {
+    document.getElementById('info-position').textContent = data.position || '—';
+    document.getElementById('info-amount-label').textContent = '月額給与';
+    document.getElementById('info-amount').textContent = data.salary ? '¥' + Number(data.salary).toLocaleString('ja-JP') : '—';
+  } else {
+    document.getElementById('info-position').textContent = data.project_name || '—';
+    document.getElementById('info-position-wrap').querySelector('.text-xs').textContent = '業務名';
+    document.getElementById('info-amount-label').textContent = '委託報酬';
+    document.getElementById('info-amount').textContent = data.contract_amount ? '¥' + Number(data.contract_amount).toLocaleString('ja-JP') : '—';
+  }
+}
+
+function loadPDF() {
+  const pdfUrl = `/sign/api/${token}/pdf`;
+  const embed = document.getElementById('pdf-embed');
+  embed.src = pdfUrl;
+  document.getElementById('pdf-download-link').href = pdfUrl;
+  document.getElementById('pdf-fallback-link').href = pdfUrl;
+
+  embed.onerror = () => {
+    embed.classList.add('hidden');
+    document.getElementById('pdf-fallback').classList.remove('hidden');
+  };
+}
+
+// キャンバス初期化
+function initCanvas() {
+  const canvas = document.getElementById('signature-canvas');
+  canvas.width = canvas.offsetWidth;
+
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return [(clientX - rect.left) * scaleX, (clientY - rect.top) * scaleY];
+  }
+
+  function startDraw(e) {
+    e.preventDefault();
+    drawing = true;
+    const [x, y] = getPos(e);
+    lastX = x; lastY = y;
+    signaturePaths.push({ points: [[x, y]], size: parseInt(document.getElementById('pen-size').value), color: document.getElementById('pen-color').value });
+  }
+
+  function draw(e) {
+    e.preventDefault();
+    if (!drawing) return;
+    const ctx = canvas.getContext('2d');
+    const [x, y] = getPos(e);
+    const path = signaturePaths[signaturePaths.length - 1];
+    path.points.push([x, y]);
+    ctx.strokeStyle = path.color;
+    ctx.lineWidth = path.size;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    lastX = x; lastY = y;
+
+    document.getElementById('submit-btn').disabled =
+      !document.getElementById('agree-checkbox').checked;
+  }
+
+  function stopDraw() {
+    if (!drawing) return;
+    drawing = false;
+    checkReady();
+  }
+
+  canvas.addEventListener('mousedown', startDraw);
+  canvas.addEventListener('mousemove', draw);
+  canvas.addEventListener('mouseup', stopDraw);
+  canvas.addEventListener('touchstart', startDraw, { passive: false });
+  canvas.addEventListener('touchmove', draw, { passive: false });
+  canvas.addEventListener('touchend', stopDraw);
+}
+
+function redrawCanvas() {
+  const canvas = document.getElementById('signature-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (const path of signaturePaths) {
+    if (path.points.length < 2) continue;
+    ctx.strokeStyle = path.color;
+    ctx.lineWidth = path.size;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(path.points[0][0], path.points[0][1]);
+    for (let i = 1; i < path.points.length; i++) {
+      ctx.lineTo(path.points[i][0], path.points[i][1]);
+    }
+    ctx.stroke();
+  }
+}
+
+function clearSignature() {
+  signaturePaths = [];
+  const canvas = document.getElementById('signature-canvas');
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  checkReady();
+}
+
+function undoSignature() {
+  if (signaturePaths.length > 0) signaturePaths.pop();
+  redrawCanvas();
+  checkReady();
+}
+
+function checkReady() {
+  const hasSignature = signaturePaths.some(p => p.points.length > 1);
+  const agreed = document.getElementById('agree-checkbox').checked;
+  document.getElementById('submit-btn').disabled = !(hasSignature && agreed);
+}
+
+document.getElementById('agree-checkbox').addEventListener('change', checkReady);
+
+async function submitSignature() {
+  const btn = document.getElementById('submit-btn');
+  const canvas = document.getElementById('signature-canvas');
+  const hasSignature = signaturePaths.some(p => p.points.length > 1);
+
+  if (!hasSignature) { alert('署名を書いてください'); return; }
+  if (!document.getElementById('agree-checkbox').checked) { alert('同意チェックが必要です'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> 送信中...';
+
+  const signatureData = canvas.toDataURL('image/png');
+
+  try {
+    const res = await fetch(`/sign/api/${token}/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signatureData, agreed: true }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    showScreen('success-screen');
+  } catch (err) {
+    alert('エラーが発生しました: ' + err.message);
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-signature mr-2"></i> 署名して契約を締結する';
+  }
+}
+
+window.addEventListener('resize', () => {
+  const canvas = document.getElementById('signature-canvas');
+  if (canvas.offsetWidth > 0) {
+    const prevWidth = canvas.width;
+    canvas.width = canvas.offsetWidth;
+    if (prevWidth !== canvas.width) redrawCanvas();
+  }
+});
+
+init();
+</script>
+</body>
+</html>
