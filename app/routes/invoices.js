@@ -23,6 +23,15 @@ function nextInvoiceNumber() {
   return num;
 }
 
+function calcAmounts(items, discount, taxRate) {
+  const subtotal = items.reduce((s, i) => s + Math.round((i.qty || 1) * (parseFloat(i.unit_price) || 0)), 0);
+  const disc = Math.round(parseFloat(discount) || 0);
+  const taxable = subtotal - disc;
+  const taxAmount = Math.floor(taxable * (parseInt(taxRate) || 10) / 100);
+  const total = taxable + taxAmount;
+  return { subtotal, discount: disc, taxAmount, total };
+}
+
 // 一覧
 router.get('/', (req, res) => {
   const { status, q } = req.query;
@@ -34,7 +43,18 @@ router.get('/', (req, res) => {
   res.json(db.prepare(sql).all(...params));
 });
 
-// 詳細
+// 統計（/:id より前に定義すること）
+router.get('/stats/summary', (req, res) => {
+  const total = db.prepare('SELECT COUNT(*) as c FROM invoices').get().c;
+  const draft = db.prepare("SELECT COUNT(*) as c FROM invoices WHERE status='draft'").get().c;
+  const sent = db.prepare("SELECT COUNT(*) as c FROM invoices WHERE status='sent'").get().c;
+  const paid = db.prepare("SELECT COUNT(*) as c FROM invoices WHERE status='paid'").get().c;
+  const totalAmount = db.prepare("SELECT COALESCE(SUM(total),0) as s FROM invoices WHERE status != 'cancelled'").get().s;
+  const unpaidAmount = db.prepare("SELECT COALESCE(SUM(total),0) as s FROM invoices WHERE status='sent'").get().s;
+  res.json({ total, draft, sent, paid, totalAmount, unpaidAmount });
+});
+
+// 詳細（固有ルートの後に配置）
 router.get('/:id', (req, res) => {
   const row = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: '見つかりません' });
@@ -44,16 +64,15 @@ router.get('/:id', (req, res) => {
 // 作成
 router.post('/', (req, res) => {
   try {
+    if (!req.body.client_name) return res.status(400).json({ error: '顧客名は必須です' });
+    const items = req.body.items || [];
+    if (!items.length) return res.status(400).json({ error: '明細を1件以上入力してください' });
+
+    const taxRate = parseInt(req.body.tax_rate ?? getSettings().tax_rate ?? 10);
+    const { subtotal, discount, taxAmount, total } = calcAmounts(items, req.body.discount, taxRate);
+
     const id = uuidv4();
     const invoice_number = nextInvoiceNumber();
-    const settings = getSettings();
-    const taxRate = parseInt(req.body.tax_rate ?? settings.tax_rate ?? 10);
-
-    const items = req.body.items || [];
-    const subtotal = items.reduce((s, i) => s + (i.qty || 1) * (i.unit_price || 0), 0);
-    const discount = parseInt(req.body.discount || 0);
-    const taxAmount = Math.floor((subtotal - discount) * taxRate / 100);
-    const total = subtotal - discount + taxAmount;
 
     db.prepare(`
       INSERT INTO invoices (
@@ -63,12 +82,12 @@ router.post('/', (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id, invoice_number,
-      req.body.client_name, req.body.client_email, req.body.client_address,
-      req.body.client_dept, req.body.client_contact,
-      req.body.issue_date, req.body.due_date,
+      req.body.client_name, req.body.client_email || null, req.body.client_address || null,
+      req.body.client_dept || null, req.body.client_contact || null,
+      req.body.issue_date || null, req.body.due_date || null,
       JSON.stringify(items),
       subtotal, discount, taxRate, taxAmount, total,
-      req.body.notes
+      req.body.notes || null
     );
 
     res.json(db.prepare('SELECT * FROM invoices WHERE id = ?').get(id));
@@ -78,17 +97,14 @@ router.post('/', (req, res) => {
   }
 });
 
-// 更新
+// 更新（BUG FIX: client_contact の copy-paste バグを修正）
 router.put('/:id', (req, res) => {
   const inv = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
   if (!inv) return res.status(404).json({ error: '見つかりません' });
 
-  const taxRate = parseInt(req.body.tax_rate ?? inv.tax_rate ?? 10);
   const items = req.body.items || JSON.parse(inv.items || '[]');
-  const subtotal = items.reduce((s, i) => s + (i.qty || 1) * (i.unit_price || 0), 0);
-  const discount = parseInt(req.body.discount ?? inv.discount ?? 0);
-  const taxAmount = Math.floor((subtotal - discount) * taxRate / 100);
-  const total = subtotal - discount + taxAmount;
+  const taxRate = parseInt(req.body.tax_rate ?? inv.tax_rate ?? 10);
+  const { subtotal, discount, taxAmount, total } = calcAmounts(items, req.body.discount ?? inv.discount, taxRate);
 
   db.prepare(`
     UPDATE invoices SET
@@ -103,7 +119,7 @@ router.put('/:id', (req, res) => {
     req.body.client_email ?? inv.client_email,
     req.body.client_address ?? inv.client_address,
     req.body.client_dept ?? inv.client_dept,
-    req.body.client_contact ?? inv.client_contact,
+    req.body.client_contact ?? inv.client_contact,   // FIX: was req.body.client_email
     req.body.issue_date ?? inv.issue_date,
     req.body.due_date ?? inv.due_date,
     JSON.stringify(items),
@@ -160,31 +176,27 @@ router.post('/:id/send', async (req, res) => {
 
 // 入金済みにする
 router.post('/:id/paid', (req, res) => {
+  const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
+  if (!invoice) return res.status(404).json({ error: '見つかりません' });
   db.prepare("UPDATE invoices SET status = 'paid', paid_at = datetime('now','localtime') WHERE id = ?").run(req.params.id);
   res.json({ success: true });
 });
 
 // キャンセル
 router.post('/:id/cancel', (req, res) => {
+  const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
+  if (!invoice) return res.status(404).json({ error: '見つかりません' });
   db.prepare("UPDATE invoices SET status = 'cancelled' WHERE id = ?").run(req.params.id);
   res.json({ success: true });
 });
 
 // 削除
 router.delete('/:id', (req, res) => {
+  const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
+  if (!invoice) return res.status(404).json({ error: '見つかりません' });
+  if (invoice.pdf_path && fs.existsSync(invoice.pdf_path)) fs.unlinkSync(invoice.pdf_path);
   db.prepare('DELETE FROM invoices WHERE id = ?').run(req.params.id);
   res.json({ success: true });
-});
-
-// 統計
-router.get('/stats/summary', (req, res) => {
-  const total = db.prepare('SELECT COUNT(*) as c FROM invoices').get().c;
-  const draft = db.prepare("SELECT COUNT(*) as c FROM invoices WHERE status='draft'").get().c;
-  const sent = db.prepare("SELECT COUNT(*) as c FROM invoices WHERE status='sent'").get().c;
-  const paid = db.prepare("SELECT COUNT(*) as c FROM invoices WHERE status='paid'").get().c;
-  const totalAmount = db.prepare("SELECT COALESCE(SUM(total),0) as s FROM invoices WHERE status != 'cancelled'").get().s;
-  const unpaidAmount = db.prepare("SELECT COALESCE(SUM(total),0) as s FROM invoices WHERE status='sent'").get().s;
-  res.json({ total, draft, sent, paid, totalAmount, unpaidAmount });
 });
 
 module.exports = router;

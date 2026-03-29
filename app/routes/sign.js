@@ -16,11 +16,16 @@ function getSettings() {
   return Object.fromEntries(rows.map(r => [r.key, r.value]));
 }
 
-// 署名ページのルート (HTMLはpublicから提供)
-router.get('/:token', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'sign.html'));
-});
+function getClientIp(req) {
+  return (
+    req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+    req.headers['x-real-ip'] ||
+    req.ip ||
+    'unknown'
+  );
+}
 
+// APIルートを先に定義（/:token が /api を誤キャッチしないよう）
 // トークンから契約情報取得
 router.get('/api/:token', (req, res) => {
   const contract = db.prepare('SELECT * FROM contracts WHERE sign_token = ?').get(req.params.token);
@@ -29,7 +34,7 @@ router.get('/api/:token', (req, res) => {
   if (contract.status === 'cancelled') return res.status(410).json({ error: 'この書類はキャンセルされました' });
 
   const expires = new Date(contract.sign_expires_at);
-  if (expires < new Date()) return res.status(410).json({ error: 'このリンクは有効期限切れです' });
+  if (expires < new Date()) return res.status(410).json({ error: 'このリンクは有効期限切れです（7日間有効）' });
 
   const settings = getSettings();
   res.json({
@@ -43,6 +48,8 @@ router.get('/api/:token', (req, res) => {
     salary: contract.salary,
     project_name: contract.project_name,
     contract_amount: contract.contract_amount,
+    work_location: contract.work_location,
+    payment_terms: contract.payment_terms,
   });
 });
 
@@ -54,13 +61,11 @@ router.get('/api/:token/pdf', async (req, res) => {
 
     const settings = getSettings();
 
-    // 既存PDFがあれば返す
     if (contract.pdf_path && fs.existsSync(contract.pdf_path)) {
       res.setHeader('Content-Type', 'application/pdf');
       return res.send(fs.readFileSync(contract.pdf_path));
     }
 
-    // テンプレートがある場合
     if (contract.template_id) {
       const tmpl = db.prepare('SELECT * FROM templates WHERE id = ?').get(contract.template_id);
       if (tmpl && fs.existsSync(tmpl.file_path)) {
@@ -76,7 +81,6 @@ router.get('/api/:token/pdf', async (req, res) => {
       pdfBuffer = await generateContractorContract(contract, settings);
     }
 
-    // 保存
     const pdfDir = path.join(__dirname, '..', 'uploads', 'contracts');
     if (!fs.existsSync(pdfDir)) fs.mkdirSync(pdfDir, { recursive: true });
     const pdfPath = path.join(pdfDir, `${contract.id}.pdf`);
@@ -97,19 +101,21 @@ router.post('/api/:token/submit', async (req, res) => {
     const contract = db.prepare('SELECT * FROM contracts WHERE sign_token = ?').get(req.params.token);
     if (!contract) return res.status(404).json({ error: '無効なリンクです' });
     if (contract.status === 'signed') return res.status(410).json({ error: 'すでに署名済みです' });
+    if (contract.status === 'cancelled') return res.status(410).json({ error: 'キャンセルされた書類です' });
 
     const expires = new Date(contract.sign_expires_at);
     if (expires < new Date()) return res.status(410).json({ error: 'リンクの有効期限が切れています' });
 
     const { signatureData, agreed } = req.body;
     if (!agreed) return res.status(400).json({ error: '利用規約に同意してください' });
-    if (!signatureData) return res.status(400).json({ error: '署名が必要です' });
+    if (!signatureData || !signatureData.startsWith('data:image/')) {
+      return res.status(400).json({ error: '署名データが無効です' });
+    }
 
     const settings = getSettings();
     const signedAt = new Date().toLocaleString('ja-JP');
-    const signerIp = req.ip;
+    const signerIp = getClientIp(req);
 
-    // 署名済みPDF生成
     const signedDir = path.join(__dirname, '..', 'uploads', 'signed');
     if (!fs.existsSync(signedDir)) fs.mkdirSync(signedDir, { recursive: true });
 
@@ -128,7 +134,7 @@ router.post('/api/:token/submit', async (req, res) => {
     }
 
     if (!pdfBuffer) {
-      // 新規生成してから署名
+      // ベースPDFを生成してから署名を埋め込む
       let basePdf;
       if (contract.type === 'employee') {
         basePdf = await generateEmployeeContract(contract, settings);
@@ -136,32 +142,43 @@ router.post('/api/:token/submit', async (req, res) => {
         basePdf = await generateContractorContract(contract, settings);
       }
       const tmpPath = path.join(signedDir, `tmp_${contract.id}.pdf`);
-      fs.writeFileSync(tmpPath, basePdf);
-      pdfBuffer = await embedSignature(tmpPath, signatureData, contract.recipient_name, signedAt);
-      fs.unlinkSync(tmpPath);
+      try {
+        fs.writeFileSync(tmpPath, basePdf);
+        pdfBuffer = await embedSignature(tmpPath, signatureData, contract.recipient_name, signedAt);
+      } finally {
+        if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+      }
     }
 
     const signedPath = path.join(signedDir, `signed_${contract.id}.pdf`);
     fs.writeFileSync(signedPath, pdfBuffer);
 
+    // 署名データはサイズが大きいのでDBには格納しない（PDFに埋め込み済み）
     db.prepare(`
       UPDATE contracts SET
         status = 'signed',
         signed_pdf_path = ?,
-        signature_data = ?,
+        signature_data = 'provided',
         signer_ip = ?,
         signed_at = datetime('now','localtime')
       WHERE id = ?
-    `).run(signedPath, signatureData.substring(0, 100), signerIp, contract.id);
+    `).run(signedPath, signerIp, contract.id);
 
-    // メール通知（非同期）
-    sendSignedNotification(settings, contract, pdfBuffer).catch(console.error);
+    // メール通知（非同期、エラーは無視）
+    sendSignedNotification(settings, contract, pdfBuffer).catch(err => {
+      console.error('署名通知メール送信エラー:', err.message);
+    });
 
     res.json({ success: true, message: '署名が完了しました' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// 署名ページのHTML（APIルートの後に定義）
+router.get('/:token', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'sign.html'));
 });
 
 module.exports = router;

@@ -12,8 +12,8 @@
   .sidebar-link { display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;border-radius:.75rem;color:#cbd5e1;transition:all .2s; }
   .sidebar-link:hover { background:rgba(255,255,255,.1);color:#fff; }
   .sidebar-link.active { background:rgba(255,255,255,.15);color:#fff;font-weight:500; }
-  .modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;display:flex;align-items:center;justify-content:center;padding:1rem; }
-  .modal-box { background:#fff;border-radius:1.25rem;width:100%;max-width:720px;max-height:92vh;overflow-y:auto; }
+  .modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto; }
+  .modal-box { background:#fff;border-radius:1.25rem;width:100%;max-width:720px;max-height:92vh;overflow-y:auto;margin:auto; }
   .form-label { display:block;font-size:.875rem;font-weight:500;color:#475569;margin-bottom:.375rem; }
   .form-input { width:100%;border:1.5px solid #e2e8f0;border-radius:.625rem;padding:.6rem .875rem;font-size:.9rem;outline:none;transition:border-color .15s;font-family:inherit; }
   .form-input:focus { border-color:#7c3aed; }
@@ -58,6 +58,9 @@
     </header>
 
     <div class="p-8 flex-1">
+      <!-- KPIバー -->
+      <div id="kpi-bar" class="grid grid-cols-4 gap-4 mb-6"></div>
+
       <!-- フィルター -->
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mb-6 flex items-center gap-4 flex-wrap">
         <div class="flex gap-2" id="status-tabs">
@@ -84,7 +87,7 @@
               <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">顧客名</th>
               <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">発行日</th>
               <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">支払期限</th>
-              <th class="text-right px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">金額</th>
+              <th class="text-right px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">請求金額</th>
               <th class="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">ステータス</th>
               <th class="px-6 py-4"></th>
             </tr>
@@ -109,7 +112,6 @@
     </div>
     <form id="create-form" class="p-6 space-y-5">
 
-      <!-- 請求先 -->
       <div class="bg-slate-50 rounded-xl p-4 space-y-3">
         <div class="text-sm font-semibold text-slate-600 mb-2"><i class="fa-solid fa-building text-violet-500 mr-2"></i>請求先</div>
         <div class="grid grid-cols-2 gap-3">
@@ -133,12 +135,11 @@
           </div>
           <div>
             <label class="form-label">担当者名</label>
-            <input name="client_contact" type="text" class="form-input" placeholder="鈴木 一郎">
+            <input name="client_contact" type="text" class="form-input" placeholder="鈴木 一郎 様">
           </div>
         </div>
       </div>
 
-      <!-- 請求情報 -->
       <div class="bg-slate-50 rounded-xl p-4 space-y-3">
         <div class="text-sm font-semibold text-slate-600 mb-2"><i class="fa-solid fa-calendar text-violet-500 mr-2"></i>請求情報</div>
         <div class="grid grid-cols-2 gap-3">
@@ -158,19 +159,17 @@
         <div class="flex items-center justify-between mb-3">
           <div class="text-sm font-semibold text-slate-600"><i class="fa-solid fa-list text-violet-500 mr-2"></i>明細</div>
           <button type="button" onclick="addItem()" class="text-xs bg-violet-50 hover:bg-violet-100 text-violet-700 px-3 py-1.5 rounded-lg font-medium transition-colors">
-            <i class="fa-solid fa-plus mr-1"></i> 明細追加
+            <i class="fa-solid fa-plus mr-1"></i> 行追加
           </button>
         </div>
         <div class="border border-slate-200 rounded-xl overflow-hidden">
-          <div class="grid grid-cols-12 gap-0 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 border-b border-slate-200">
+          <div class="grid grid-cols-12 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 border-b border-slate-200">
             <div class="col-span-5">品目・内容</div>
             <div class="col-span-2 text-center">数量</div>
             <div class="col-span-3 text-right">単価（円）</div>
-            <div class="col-span-2 text-right">金額</div>
+            <div class="col-span-2 text-right pr-6">金額</div>
           </div>
-          <div id="items-container">
-            <!-- 明細行はJS追加 -->
-          </div>
+          <div id="items-container"></div>
         </div>
       </div>
 
@@ -184,19 +183,18 @@
           <div class="flex items-center justify-between text-sm gap-3">
             <span class="text-slate-500">値引き</span>
             <div class="flex items-center gap-1">
-              <span class="text-slate-400">¥</span>
-              <input name="discount" type="number" value="0" min="0" class="form-input w-28 text-right text-sm py-1" oninput="recalc()">
+              <span class="text-slate-400 text-xs">¥</span>
+              <input name="discount" type="number" value="0" min="0" step="1"
+                class="form-input w-28 text-right text-sm py-1" oninput="recalc()">
             </div>
           </div>
           <div class="flex items-center justify-between text-sm gap-3">
             <span class="text-slate-500">消費税率</span>
-            <div class="flex items-center gap-1">
-              <select name="tax_rate" class="form-input w-28 text-sm py-1" onchange="recalc()">
-                <option value="10">10%</option>
-                <option value="8">8%（軽減）</option>
-                <option value="0">0%（非課税）</option>
-              </select>
-            </div>
+            <select name="tax_rate" class="form-input w-28 text-sm py-1" onchange="recalc()">
+              <option value="10">10%（標準）</option>
+              <option value="8">8%（軽減）</option>
+              <option value="0">0%（非課税）</option>
+            </select>
           </div>
           <div class="flex justify-between text-sm">
             <span class="text-slate-500">消費税</span>
@@ -210,13 +208,13 @@
       </div>
 
       <div>
-        <label class="form-label">備考</label>
-        <textarea name="notes" class="form-input" rows="2" placeholder="振込期限、その他備考"></textarea>
+        <label class="form-label">備考・振込先案内</label>
+        <textarea name="notes" class="form-input" rows="2" placeholder="お振込期日、その他お伝えしたい事項"></textarea>
       </div>
 
       <div class="flex gap-3 pt-2">
         <button type="button" onclick="closeModal('modal-create')" class="flex-1 py-3 border border-slate-200 rounded-xl font-medium text-slate-600 hover:bg-slate-50 transition-colors">キャンセル</button>
-        <button type="submit" class="flex-1 py-3 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-medium transition-colors">
+        <button type="submit" id="create-submit-btn" class="flex-1 py-3 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-medium transition-colors">
           <i class="fa-solid fa-plus mr-2"></i>作成する
         </button>
       </div>
@@ -239,7 +237,7 @@
 
 <!-- トースト -->
 <div id="toast" class="fixed bottom-6 right-6 z-50 hidden">
-  <div id="toast-inner" class="flex items-center gap-3 bg-white border border-slate-200 shadow-xl rounded-xl px-5 py-3.5 text-sm font-medium"></div>
+  <div id="toast-inner" class="flex items-center gap-3 bg-white border border-slate-200 shadow-xl rounded-xl px-5 py-3.5 text-sm font-medium max-w-xs"></div>
 </div>
 
 <script>
@@ -247,28 +245,31 @@ let currentStatus = '';
 let debounceTimer;
 let itemCount = 0;
 
-const statusLabels = {
-  draft: { label: '下書き', cls: 'bg-slate-100 text-slate-600' },
-  sent: { label: '送信済み', cls: 'bg-amber-100 text-amber-700' },
-  paid: { label: '入金済み', cls: 'bg-green-100 text-green-700' },
+const statusConfig = {
+  draft:     { label: '下書き',  cls: 'bg-slate-100 text-slate-600' },
+  sent:      { label: '送信済み', cls: 'bg-amber-100 text-amber-700' },
+  paid:      { label: '入金済み', cls: 'bg-green-100 text-green-700' },
   cancelled: { label: 'キャンセル', cls: 'bg-red-100 text-red-600' },
 };
 
 function badge(status) {
-  const s = statusLabels[status] || { label: status, cls: 'bg-slate-100 text-slate-600' };
+  const s = statusConfig[status] || { label: status, cls: 'bg-slate-100 text-slate-600' };
   return `<span class="text-xs px-2.5 py-1 rounded-full font-medium ${s.cls}">${s.label}</span>`;
 }
 
-function fmtMoney(n) { return '¥' + Number(n || 0).toLocaleString('ja-JP'); }
+function fmtMoney(n) { return '¥' + Math.round(n || 0).toLocaleString('ja-JP'); }
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 function toast(msg, type = 'success') {
   const el = document.getElementById('toast');
   const inner = document.getElementById('toast-inner');
   const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
   const color = type === 'success' ? 'text-green-600' : type === 'error' ? 'text-red-600' : 'text-blue-600';
-  inner.innerHTML = `<span class="${color} font-bold">${icon}</span> ${msg}`;
+  inner.innerHTML = `<span class="${color} font-bold">${icon}</span><span class="ml-1">${msg}</span>`;
   el.classList.remove('hidden');
-  setTimeout(() => el.classList.add('hidden'), 3500);
+  setTimeout(() => el.classList.add('hidden'), 4000);
 }
 
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
@@ -294,11 +295,15 @@ function addItem(name = '', qty = 1, price = 0) {
   row.className = 'grid grid-cols-12 gap-1 px-3 py-2 border-b border-slate-100 last:border-0 items-center';
   row.id = `item-row-${i}`;
   row.innerHTML = `
-    <input type="text" class="col-span-5 form-input py-1.5 text-sm" placeholder="品目名" data-item="${i}" data-field="name" value="${name}" oninput="recalc()">
-    <input type="number" class="col-span-2 form-input py-1.5 text-sm text-center" placeholder="1" min="1" data-item="${i}" data-field="qty" value="${qty}" oninput="recalc()">
-    <input type="number" class="col-span-3 form-input py-1.5 text-sm text-right" placeholder="0" min="0" data-item="${i}" data-field="unit_price" value="${price}" oninput="recalc()">
-    <div class="col-span-1 text-right text-sm font-medium text-slate-700" id="row-amount-${i}">${fmtMoney(qty * price)}</div>
-    <button type="button" onclick="removeItem(${i})" class="col-span-1 flex items-center justify-center text-slate-300 hover:text-red-400 transition-colors">
+    <input type="text" class="col-span-5 form-input py-1.5 text-sm" placeholder="品目名"
+      data-item="${i}" data-field="name" value="${esc(String(name))}" oninput="recalc()">
+    <input type="number" class="col-span-2 form-input py-1.5 text-sm text-center" placeholder="1" min="1"
+      data-item="${i}" data-field="qty" value="${qty}" oninput="recalc()">
+    <input type="number" class="col-span-3 form-input py-1.5 text-sm text-right" placeholder="0" min="0" step="1"
+      data-item="${i}" data-field="unit_price" value="${price}" oninput="recalc()">
+    <div class="col-span-1 text-right text-xs font-medium text-slate-700 pr-1" id="row-amount-${i}">${fmtMoney(qty * price)}</div>
+    <button type="button" onclick="removeItem(${i})"
+      class="flex items-center justify-center text-slate-300 hover:text-red-400 transition-colors">
       <i class="fa-solid fa-xmark text-xs"></i>
     </button>
   `;
@@ -307,8 +312,7 @@ function addItem(name = '', qty = 1, price = 0) {
 }
 
 function removeItem(i) {
-  const row = document.getElementById(`item-row-${i}`);
-  if (row) row.remove();
+  document.getElementById(`item-row-${i}`)?.remove();
   recalc();
 }
 
@@ -316,9 +320,9 @@ function getItems() {
   const items = [];
   document.querySelectorAll('[data-field="name"]').forEach(el => {
     const i = el.dataset.item;
-    const name = el.value;
-    const qty = parseInt(document.querySelector(`[data-item="${i}"][data-field="qty"]`)?.value || '1');
-    const unit_price = parseInt(document.querySelector(`[data-item="${i}"][data-field="unit_price"]`)?.value || '0');
+    const name = el.value.trim();
+    const qty = parseFloat(document.querySelector(`[data-item="${i}"][data-field="qty"]`)?.value || '1') || 1;
+    const unit_price = parseFloat(document.querySelector(`[data-item="${i}"][data-field="unit_price"]`)?.value || '0') || 0;
     if (name) items.push({ name, qty, unit_price });
     const amountEl = document.getElementById(`row-amount-${i}`);
     if (amountEl) amountEl.textContent = fmtMoney(qty * unit_price);
@@ -328,8 +332,8 @@ function getItems() {
 
 function recalc() {
   const items = getItems();
-  const subtotal = items.reduce((s, i) => s + i.qty * i.unit_price, 0);
-  const discount = parseInt(document.querySelector('[name="discount"]')?.value || '0');
+  const subtotal = items.reduce((s, i) => s + Math.round(i.qty * i.unit_price), 0);
+  const discount = parseFloat(document.querySelector('[name="discount"]')?.value || '0') || 0;
   const taxRate = parseInt(document.querySelector('[name="tax_rate"]')?.value || '10');
   const taxable = subtotal - discount;
   const tax = Math.floor(taxable * taxRate / 100);
@@ -358,13 +362,18 @@ function openCreate() {
 
 document.getElementById('create-form').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const items = getItems();
+  if (!items.length) { toast('明細を1件以上入力してください', 'error'); return; }
+
   const fd = new FormData(e.target);
   const data = Object.fromEntries(fd.entries());
-  data.items = getItems();
-  data.discount = parseInt(data.discount || 0);
-  data.tax_rate = parseInt(data.tax_rate || 10);
+  data.items = items;
+  data.discount = parseFloat(data.discount || '0') || 0;
+  data.tax_rate = parseInt(data.tax_rate || '10');
 
-  if (!data.items.length) { toast('明細を1件以上入力してください', 'error'); return; }
+  const btn = document.getElementById('create-submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i>作成中...';
 
   try {
     const res = await fetch('/api/invoices', {
@@ -377,10 +386,36 @@ document.getElementById('create-form').addEventListener('submit', async (e) => {
     closeModal('modal-create');
     toast(`請求書 ${result.invoice_number} を作成しました`);
     loadInvoices();
+    loadKpi();
   } catch (err) {
     toast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-plus mr-2"></i>作成する';
   }
 });
+
+async function loadKpi() {
+  try {
+    const data = await fetch('/api/invoices/stats/summary').then(r => r.json());
+    document.getElementById('kpi-bar').innerHTML = [
+      { label: '総請求件数', value: data.total + '件', icon: 'fa-file-invoice', color: 'indigo' },
+      { label: '未入金',     value: data.sent + '件', icon: 'fa-clock', color: 'amber' },
+      { label: '入金済み',   value: data.paid + '件', icon: 'fa-circle-check', color: 'green' },
+      { label: '未入金合計', value: fmtMoney(data.unpaidAmount), icon: 'fa-yen-sign', color: 'red' },
+    ].map(k => `
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-xs text-slate-500">${k.label}</div>
+          <div class="w-8 h-8 bg-${k.color}-50 rounded-lg flex items-center justify-center">
+            <i class="fa-solid ${k.icon} text-${k.color}-500 text-sm"></i>
+          </div>
+        </div>
+        <div class="text-xl font-bold text-slate-800">${k.value}</div>
+      </div>
+    `).join('');
+  } catch (e) { /* ignore */ }
+}
 
 async function loadInvoices() {
   const q = document.getElementById('search-input').value;
@@ -393,56 +428,59 @@ async function loadInvoices() {
     return;
   }
 
-  tbody.innerHTML = data.map(inv => `
-    <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+  tbody.innerHTML = data.map(inv => {
+    const overdue = inv.status === 'sent' && inv.due_date && new Date(inv.due_date) < new Date();
+    return `
+    <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer" onclick="viewDetail('${inv.id}')">
       <td class="px-6 py-4">
-        <div class="font-medium text-sm font-mono">${inv.invoice_number}</div>
+        <div class="font-medium text-sm font-mono">${esc(inv.invoice_number)}</div>
       </td>
       <td class="px-6 py-4">
-        <div class="font-medium text-sm">${inv.client_name}</div>
-        <div class="text-xs text-slate-400">${inv.client_email || ''}</div>
+        <div class="font-medium text-sm">${esc(inv.client_name)}</div>
+        <div class="text-xs text-slate-400">${esc(inv.client_email || '')}</div>
       </td>
       <td class="px-6 py-4 text-sm text-slate-600">${inv.issue_date || '—'}</td>
-      <td class="px-6 py-4 text-sm ${isOverdue(inv) ? 'text-red-500 font-medium' : 'text-slate-600'}">${inv.due_date || '—'}${isOverdue(inv) ? ' <span class="text-xs">⚠ 期限切れ</span>' : ''}</td>
-      <td class="px-6 py-4 text-right font-medium">${fmtMoney(inv.total)}</td>
+      <td class="px-6 py-4 text-sm ${overdue ? 'text-red-500 font-semibold' : 'text-slate-600'}">
+        ${inv.due_date || '—'}${overdue ? '<span class="ml-1 text-xs">⚠</span>' : ''}
+      </td>
+      <td class="px-6 py-4 text-right font-semibold text-slate-800">${fmtMoney(inv.total)}</td>
       <td class="px-6 py-4">${badge(inv.status)}</td>
-      <td class="px-6 py-4">
-        <div class="flex items-center gap-2 justify-end">
-          <button onclick="viewDetail('${inv.id}')" class="text-slate-400 hover:text-violet-600 p-1.5 rounded-lg hover:bg-violet-50 transition-colors" title="詳細">
-            <i class="fa-solid fa-eye text-sm"></i>
-          </button>
-          <a href="/api/invoices/${inv.id}/pdf" target="_blank" class="text-slate-400 hover:text-violet-600 p-1.5 rounded-lg hover:bg-violet-50 transition-colors" title="PDF">
+      <td class="px-6 py-4" onclick="event.stopPropagation()">
+        <div class="flex items-center gap-1 justify-end">
+          <a href="/api/invoices/${inv.id}/pdf" target="_blank"
+             onclick="event.stopPropagation()"
+             class="text-slate-400 hover:text-violet-600 p-1.5 rounded-lg hover:bg-violet-50 transition-colors" title="PDF">
             <i class="fa-solid fa-file-pdf text-sm"></i>
           </a>
           ${inv.status !== 'paid' && inv.status !== 'cancelled' ? `
-          <button onclick="sendInvoice('${inv.id}', '${inv.client_name}')" class="text-slate-400 hover:text-amber-600 p-1.5 rounded-lg hover:bg-amber-50 transition-colors" title="メール送信">
+          <button onclick="sendInvoice('${inv.id}', '${esc(inv.client_name)}')"
+            class="text-slate-400 hover:text-amber-600 p-1.5 rounded-lg hover:bg-amber-50 transition-colors" title="メール送信">
             <i class="fa-solid fa-paper-plane text-sm"></i>
           </button>` : ''}
           ${inv.status === 'sent' ? `
-          <button onclick="markPaid('${inv.id}')" class="text-slate-400 hover:text-green-600 p-1.5 rounded-lg hover:bg-green-50 transition-colors" title="入金済みにする">
+          <button onclick="markPaid('${inv.id}')"
+            class="text-slate-400 hover:text-green-600 p-1.5 rounded-lg hover:bg-green-50 transition-colors" title="入金済みにする">
             <i class="fa-solid fa-check text-sm"></i>
           </button>` : ''}
-          <button onclick="deleteInvoice('${inv.id}')" class="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="削除">
+          <button onclick="deleteInvoice('${inv.id}')"
+            class="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="削除">
             <i class="fa-solid fa-trash text-sm"></i>
           </button>
         </div>
       </td>
     </tr>
-  `).join('');
-}
-
-function isOverdue(inv) {
-  return inv.status === 'sent' && inv.due_date && new Date(inv.due_date) < new Date();
+  `}).join('');
 }
 
 async function sendInvoice(id, name) {
-  if (!confirm(`${name}様にメールで請求書を送信しますか？`)) return;
+  if (!confirm(`${name}様へメールで請求書を送信しますか？`)) return;
   try {
     const res = await fetch(`/api/invoices/${id}/send`, { method: 'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     toast('請求書メールを送信しました');
     loadInvoices();
+    loadKpi();
   } catch (err) {
     toast(err.message, 'error');
   }
@@ -450,37 +488,47 @@ async function sendInvoice(id, name) {
 
 async function markPaid(id) {
   if (!confirm('入金済みとしてマークしますか？')) return;
-  await fetch(`/api/invoices/${id}/paid`, { method: 'POST' });
+  const res = await fetch(`/api/invoices/${id}/paid`, { method: 'POST' });
+  const data = await res.json();
+  if (!res.ok) { toast(data.error, 'error'); return; }
   toast('入金済みにしました');
   loadInvoices();
+  loadKpi();
 }
 
 async function deleteInvoice(id) {
   if (!confirm('この請求書を削除しますか？')) return;
-  await fetch(`/api/invoices/${id}`, { method: 'DELETE' });
+  const res = await fetch(`/api/invoices/${id}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (!res.ok) { toast(data.error, 'error'); return; }
   toast('削除しました');
   loadInvoices();
+  loadKpi();
 }
 
 async function viewDetail(id) {
   const inv = await fetch(`/api/invoices/${id}`).then(r => r.json());
   const items = JSON.parse(inv.items || '[]');
-  document.getElementById('detail-title').textContent = `${inv.invoice_number} - ${inv.client_name}`;
+  const overdue = inv.status === 'sent' && inv.due_date && new Date(inv.due_date) < new Date();
+  document.getElementById('detail-title').textContent = `${inv.invoice_number} — ${inv.client_name}`;
 
-  const content = document.getElementById('detail-content');
-  content.innerHTML = `
+  document.getElementById('detail-content').innerHTML = `
     <div class="grid grid-cols-2 gap-4 mb-5">
       <div>
         <div class="text-xs text-slate-400 mb-1">請求先</div>
-        <div class="font-semibold">${inv.client_name}</div>
-        <div class="text-sm text-slate-500">${inv.client_email || ''}</div>
-        <div class="text-sm text-slate-500">${inv.client_address || ''}</div>
+        <div class="font-semibold text-lg">${esc(inv.client_name)}</div>
+        ${inv.client_dept ? `<div class="text-sm text-slate-500">${esc(inv.client_dept)}</div>` : ''}
+        ${inv.client_contact ? `<div class="text-sm text-slate-500">${esc(inv.client_contact)}</div>` : ''}
+        ${inv.client_email ? `<div class="text-sm text-indigo-600">${esc(inv.client_email)}</div>` : ''}
+        ${inv.client_address ? `<div class="text-sm text-slate-400 mt-1">${esc(inv.client_address)}</div>` : ''}
       </div>
       <div class="text-right">
-        <div class="text-xs text-slate-400 mb-1">ステータス</div>
-        ${badge(inv.status)}
-        <div class="text-sm text-slate-500 mt-2">発行日: ${inv.issue_date || '—'}</div>
-        <div class="text-sm ${isOverdue(inv) ? 'text-red-500 font-medium' : 'text-slate-500'}">期限: ${inv.due_date || '—'}</div>
+        <div class="mb-2">${badge(inv.status)}</div>
+        <div class="text-sm text-slate-500">発行日: ${inv.issue_date || '—'}</div>
+        <div class="text-sm ${overdue ? 'text-red-500 font-semibold' : 'text-slate-500'}">
+          期限: ${inv.due_date || '—'}${overdue ? ' ⚠ 期限超過' : ''}
+        </div>
+        ${inv.paid_at ? `<div class="text-sm text-green-600 mt-1">入金日: ${inv.paid_at}</div>` : ''}
       </div>
     </div>
 
@@ -494,8 +542,8 @@ async function viewDetail(id) {
         </tr></thead>
         <tbody>
           ${items.map(i => `
-            <tr class="border-b border-slate-100">
-              <td class="px-4 py-2">${i.name}</td>
+            <tr class="border-b border-slate-100 last:border-0">
+              <td class="px-4 py-2">${esc(i.name)}</td>
               <td class="px-4 py-2 text-center">${i.qty}</td>
               <td class="px-4 py-2 text-right">${fmtMoney(i.unit_price)}</td>
               <td class="px-4 py-2 text-right font-medium">${fmtMoney(i.qty * i.unit_price)}</td>
@@ -506,29 +554,29 @@ async function viewDetail(id) {
     </div>
 
     <div class="flex flex-col items-end space-y-1.5 mb-5">
-      <div class="flex gap-8 text-sm"><span class="text-slate-500">小計</span><span>${fmtMoney(inv.subtotal)}</span></div>
-      ${inv.discount > 0 ? `<div class="flex gap-8 text-sm"><span class="text-slate-500">値引き</span><span class="text-red-500">-${fmtMoney(inv.discount)}</span></div>` : ''}
-      <div class="flex gap-8 text-sm"><span class="text-slate-500">消費税(${inv.tax_rate}%)</span><span>${fmtMoney(inv.tax_amount)}</span></div>
+      <div class="flex gap-8 text-sm w-64 justify-between"><span class="text-slate-500">小計</span><span>${fmtMoney(inv.subtotal)}</span></div>
+      ${inv.discount > 0 ? `<div class="flex gap-8 text-sm w-64 justify-between"><span class="text-slate-500">値引き</span><span class="text-red-500">-${fmtMoney(inv.discount)}</span></div>` : ''}
+      <div class="flex gap-8 text-sm w-64 justify-between"><span class="text-slate-500">消費税(${inv.tax_rate}%)</span><span>${fmtMoney(inv.tax_amount)}</span></div>
       <div class="flex gap-8 font-bold text-lg border-t border-slate-200 pt-2 w-64 justify-between">
         <span>合計</span><span class="text-violet-700">${fmtMoney(inv.total)}</span>
       </div>
     </div>
 
-    ${inv.notes ? `<div class="bg-slate-50 rounded-xl p-4 text-sm text-slate-600 mb-5"><strong>備考:</strong> ${inv.notes}</div>` : ''}
+    ${inv.notes ? `<div class="bg-slate-50 rounded-xl p-4 text-sm text-slate-600 mb-5 whitespace-pre-wrap">${esc(inv.notes)}</div>` : ''}
 
-    <div class="flex gap-3">
+    <div class="flex flex-wrap gap-3">
       <a href="/api/invoices/${id}/pdf" target="_blank"
-         class="flex-1 py-3 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-medium text-sm text-center flex items-center justify-center gap-2">
+         class="flex-1 min-w-0 py-3 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-medium text-sm text-center flex items-center justify-center gap-2">
         <i class="fa-solid fa-file-pdf"></i> PDF ダウンロード
       </a>
       ${inv.status !== 'paid' && inv.status !== 'cancelled' ? `
-      <button onclick="sendInvoice('${id}', '${inv.client_name}'); closeModal('modal-detail');"
-         class="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2">
+      <button onclick="sendInvoice('${id}', '${esc(inv.client_name)}'); closeModal('modal-detail');"
+         class="flex-1 min-w-0 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2">
         <i class="fa-solid fa-paper-plane"></i> メールで送信
       </button>` : ''}
       ${inv.status === 'sent' ? `
       <button onclick="markPaid('${id}'); closeModal('modal-detail');"
-         class="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2">
+         class="flex-1 min-w-0 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2">
         <i class="fa-solid fa-check"></i> 入金済みにする
       </button>` : ''}
     </div>
@@ -536,12 +584,12 @@ async function viewDetail(id) {
   openModal('modal-detail');
 }
 
-// URLパラメータ処理
 const urlParams = new URLSearchParams(location.search);
 if (urlParams.get('action') === 'new') openCreate();
 if (urlParams.get('id')) viewDetail(urlParams.get('id'));
 
 loadInvoices();
+loadKpi();
 </script>
 </body>
 </html>
